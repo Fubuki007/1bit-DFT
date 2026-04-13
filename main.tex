@@ -1,0 +1,223 @@
+\documentclass[12pt,a4paper]{ctexart}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,bm,mathtools}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+
+\lstdefinestyle{matlabstyle}{
+  language=Matlab,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue},
+  commentstyle=\color{teal},
+  stringstyle=\color{purple},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  stepnumber=1,
+  numbersep=8pt,
+  breaklines=true,
+  frame=single,
+  showstringspaces=false
+}
+
+\title{单比特量化约束下 MIMO-OFDM 通感一体化系统\\DFT 基高精度角度估计组会汇报}
+\author{汇报人：\underline{请填写姓名} \quad 单位：\underline{请填写单位}}
+\date{2026年4月}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本文围绕“单比特量化条件下如何实现高精度角度估计”展开。针对 MIMO-OFDM 通感一体化（ISAC）系统中高分辨 ADC 成本和功耗过高的问题，采用复单比特 ADC 对回波进行量化，分析其带来的幅度信息丢失、量化噪声抬升、通信符号污染谱峰等关键退化机制。在此基础上，构建“幅度补偿—空间维DFT分箱—自适应缩放因子消除通信符号—角度谱累积—CFAR与插值精化”的完整算法链路。结合 MATLAB 实现（\texttt{run\_demo\_1bit\_dft.m}、\texttt{joint\_arv\_estimator.m}、\texttt{run\_mc\_eval\_1bit\_angle.m}）给出可复现实验模板，并提供论文公式与代码步骤的一一映射。结果展示建议表明：Bussgang 补偿与谱峰精化可显著提升 1-bit 场景测角稳健性与精度，为低功耗终端部署提供工程可行路径。
+\end{abstract}
+
+\section{研究背景与问题定义}
+ISAC 通过通信与感知频谱/硬件复用，成为 6G 车联网与智能终端的重要技术路线。MIMO-OFDM 具备成熟标准与良好多径鲁棒性，但大规模阵列与宽带配置使接收数据量巨大，导致高精度 ADC 在功耗与成本上难以落地。单比特 ADC 仅保留符号信息，可显著降低硬件复杂度，但会引入三类核心挑战：
+\begin{itemize}
+  \item \textbf{幅度信息丢失}：无法直接进行传统幅度域干扰消除；
+  \item \textbf{量化噪声抬升}：角度谱主瓣变钝、旁瓣抬高；
+  \item \textbf{通信符号污染}：随机符号在角域造成伪峰，影响峰值定位。
+\end{itemize}
+因此，本工作目标是：在 1-bit 量化下实现低复杂度、可解释、可复现的高精度角度估计。
+
+\section{系统模型与物理机理}
+对第 $m$ 根接收天线、第 $i$ 个子载波、第 $l$ 个 OFDM 符号，回波建模为
+\begin{equation}
+  y(m,i,l)=\sum_{q=1}^{Q}\beta_q\,\mathbf{a}^H(\theta_q)\mathbf{x}_i[l]\,e^{j m\omega_a(\theta_q)}e^{j i\omega_r(R_q)}e^{j l\omega_v(v_q)}+z(m,i,l).
+\end{equation}
+其中角度数字频率 $\omega_a(\theta_q)=-\frac{2\pi d_r}{\lambda_c}\sin\theta_q$，距离频率 $\omega_r(R_q)=-\frac{4\pi\Delta f}{c}R_q$，速度频率 $\omega_v(v_q)=\frac{4\pi T f_c}{c}v_q$。关键结论是：角度、距离、速度分别耦合在\textbf{空间维}、\textbf{快时间维}、\textbf{慢时间维}，因此角度估计可优先在空间维执行 DFT。
+
+\section{单比特量化建模与退化分析}
+复单比特量化表达为
+\begin{equation}
+  y_b=\mathcal{Q}(y)=\operatorname{sign}(\Re\{y\})+j\,\operatorname{sign}(\Im\{y\}).
+\end{equation}
+在 Bussgang decomposition 下近似写成
+\begin{equation}
+  y_b = k y + n_q, \quad k=\frac{2}{\sqrt{\pi}},
+\end{equation}
+其中 $n_q$ 为与原信号统计不相关的量化噪声。该模型解释了 1-bit 条件下谱峰钝化和噪底上升。
+
+\section{方法：单比特空间维 DFT 高精度角度估计}
+\subsection{步骤1：幅度补偿}
+利用 $k$ 对量化信号进行比例恢复，减轻量化收缩效应：
+\begin{equation}
+  \tilde{y}_b = k\,y_b.
+\end{equation}
+
+\subsection{步骤2：空间维 DFT 分箱}
+对空间维执行 $N_a$ 点 DFT：
+\begin{equation}
+  Y_{b,i,l}(n_a)=\frac{1}{M_{rx}}\sum_{m=0}^{M_{rx}-1}\tilde{y}_b(m,i,l)e^{-j m\tilde\omega_a(n_a)}.
+\end{equation}
+由于距离/速度项与 $m$ 无关，它们作为复常数不改变角域分箱机理。
+
+\subsection{步骤3：自适应缩放因子消除通信符号}
+定义
+\begin{equation}
+  y_{b,i,l}(n_a)=\frac{Y_{b,i,l}(n_a)}{\alpha_{b,n_a}\,\mathbf{a}^H(\theta_{n_a})\mathbf{x}_i[l]}.
+\end{equation}
+通过功率守恒约束求解 $\alpha_{b,n_a}$，避免直接相除导致角度箱功率畸变。
+
+\subsection{步骤4：角度谱构造与峰值精化}
+沿 $i,l$ 维累积得角度功率谱
+\begin{equation}
+  Y_b(n_a)=\frac{1}{N_sL}\sum_{i=0}^{N_s-1}\sum_{l=0}^{L-1}|y_{b,i,l}(n_a)|^2.
+\end{equation}
+随后采用 CA-CFAR（Constant False Alarm Rate）抑制虚警，并用抛物线插值（parabolic interpolation）提升亚栅格定位精度。
+
+\subsection{步骤5：角度反演}
+\begin{equation}
+  \hat\theta = \arcsin\!\left(-\frac{\hat n_a\lambda_c}{d_r N_a}\right).
+\end{equation}
+
+\begin{algorithm}[H]
+\caption{单比特空间维 DFT 角度估计流程}
+\begin{algorithmic}[1]
+\Require $y_b(m,i,l)$，系统参数 $M_{rx},N_a,d_r,\lambda_c$，已知发射符号 $x$
+\Ensure $\hat\theta$
+\State 幅度补偿：$\tilde y_b \leftarrow k y_b$
+\State 空间维 DFT：计算 $Y_{b,i,l}(n_a)$
+\State 求解 $\alpha_{b,n_a}$ 并消除 $\mathbf{a}^H(\theta_{n_a})\mathbf{x}_i[l]$
+\State 跨 $i,l$ 维累积得到 $Y_b(n_a)$
+\State CA-CFAR + 抛物线插值，得到 $\hat n_a$
+\State 角度反演输出 $\hat\theta$
+\end{algorithmic}
+\end{algorithm}
+
+\section{论文到代码映射（重点汇报页）}
+\subsection*{1) 参数与物理含义：\texttt{run\_demo\_1bit\_dft.m}}
+建议展示：\texttt{mu\_3gpp, Delta\_f, fc, lambda\_c, dt, dr, Na/Nr/Nv, T} 的定义。强调“参数-物理意义-公式变量”的对应关系。
+
+\subsection*{2) 主算法实现：\texttt{joint\_arv\_estimator.m}}
+建议按代码注释中的 Step 1--Step 5 逐页对应：
+\begin{itemize}
+  \item Step 1：\texttt{use\_bussgang} 开关与幅度补偿；
+  \item Step 2：\texttt{fft(...,Na,1)} 实现空间维 DFT；
+  \item Step 3：逐角度箱构造 \texttt{denom} 与 \texttt{alpha}，完成通信符号消除；
+  \item Step 4：\texttt{fft2} 构造距离-速度域；
+  \item Step 5：\texttt{asin}、\texttt{R\_hat}、\texttt{v\_hat} 完成参数反演。
+\end{itemize}
+
+\subsection*{3) 蒙特卡洛评测：\texttt{run\_mc\_eval\_1bit\_angle.m}}
+建议展示三组对比：\texttt{full}、\texttt{1bit\_no\_bg}、\texttt{1bit\_bg}，并突出 RMSE、中位绝对误差、离群率三指标。
+
+\section{实验设计与结果展示模板}
+\subsection{可复现实验设置}
+单目标场景：$\theta=10^\circ$，$R=60\,\mathrm{m}$，$v=20\,\mathrm{m/s}$，SNR=15 dB；
+默认规模可选 balanced：$M_{rx}=16,N_{tx}=16,N_s=256,L=64,N_a=3M_{rx}$。
+
+\subsection{建议图表}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{figures/angle_spectrum_placeholder.pdf}
+  \caption{角度谱示意图（请替换为程序输出图）}
+  \label{fig:angle_spectrum}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{figures/rmse_snr_placeholder.pdf}
+  \caption{角度 RMSE 随 SNR 变化（full / 1bit-noBG / 1bit-BG）}
+  \label{fig:rmse_snr}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{不同算法配置性能对比（示例模板）}
+\begin{tabular}{c c c c}
+\toprule
+SNR(dB) & RMSE(full) & RMSE(1bit-noBG) & RMSE(1bit-BG) \\
+\midrule
+-5 & -- & -- & -- \\
+0  & -- & -- & -- \\
+5  & -- & -- & -- \\
+10 & -- & -- & -- \\
+15 & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{组会讲解提纲（5--8分钟）}
+\begin{enumerate}
+  \item 研究动机（1分钟）：为什么要 1-bit，代价是什么；
+  \item 模型与机理（1分钟）：角-距-速维度解耦；
+  \item 方法链路（2分钟）：补偿、分箱、消符号、谱构造、精化；
+  \item 代码映射（1分钟）：论文公式如何落地到函数与开关；
+  \item 结果与结论（1分钟）：BG 与精化带来的收益；
+  \item 讨论（1--2分钟）：多目标、近场、阈值优化等后续方向。
+\end{enumerate}
+
+\section{局限性与改进方向}
+\begin{itemize}
+  \item 当前以单目标/理想阵列为主，需扩展到多目标近间隔场景；
+  \item 远场窄带近似下效果较好，需评估近场与宽带波束偏斜影响；
+  \item 量化阈值固定，后续可研究自适应阈值与非对称量化；
+  \item 可补充与 MUSIC/ESPRIT 在 1-bit 条件下的统一对比；
+  \item 推进硬件在环（HIL）验证，评估实际链路鲁棒性。
+\end{itemize}
+
+\section{结论}
+本文给出一条从物理建模到工程实现的 1-bit 高精度测角路径：通过空间维解耦把角度估计问题转化为低复杂度频域峰值检测，并以 Bussgang 补偿与自适应缩放因子缓解量化与通信符号干扰。结合 CFAR 与插值后，在低功耗前提下可获得可用的角度估计精度，具备面向终端部署的实践价值。
+
+\section*{附：代码展示页（可直接嵌入）}
+\noindent 若希望在 PDF 中直接展示源码片段，可取消注释并调整行号：
+
+% \lstset{style=matlabstyle}
+% \lstinputlisting[firstline=1,lastline=120,caption={run\_demo\_1bit\_dft.m 参数与仿真设置}]{run_demo_1bit_dft.m}
+% \lstinputlisting[firstline=1,lastline=220,caption={joint\_arv\_estimator.m 主算法实现}]{joint_arv_estimator.m}
+% \lstinputlisting[firstline=1,lastline=220,caption={run\_mc\_eval\_1bit\_angle.m 蒙特卡洛评测}]{run_mc_eval_1bit_angle.m}
+
+\begin{thebibliography}{99}
+\bibitem{isac_overview}
+F. Liu, Y.-F. Liu, A. Li, C. Masouros, Y. C. Eldar, and S. Cui,
+``Integrated sensing and communications: Toward dual-functional wireless networks,''
+\emph{IEEE Journal on Selected Areas in Communications}, 2022.
+
+\bibitem{1bit_adc}
+J. Mo and R. W. Heath,
+``High SNR capacity of millimeter wave MIMO systems with one-bit quantization,''
+\emph{Information Theory and Applications Workshop}, 2014.
+
+\bibitem{bussgang}
+J. J. Bussgang,
+``Crosscorrelation functions of amplitude-distorted Gaussian signals,''
+\emph{MIT Research Laboratory of Electronics, Technical Report}, 1952.
+
+\bibitem{cfar}
+H. Rohling,
+``Radar CFAR thresholding in clutter and multiple target situations,''
+\emph{IEEE Transactions on Aerospace and Electronic Systems}, 1983.
+\end{thebibliography}
+
+\end{document}
