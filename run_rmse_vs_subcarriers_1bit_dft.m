@@ -147,12 +147,10 @@ legend('Location', 'northeastoutside');
 set(gca, 'FontName', 'Times New Roman', 'FontSize', 11, 'LineWidth', 1.1);
 
 out_png = fullfile(pwd, 'rmse_vs_subcarriers_compare_antenna_1bit_full.png');
-out_pdf = fullfile(pwd, 'rmse_vs_subcarriers_compare_antenna_1bit_full.pdf');
 exportgraphics(fig, out_png, 'Resolution', 300);
-exportgraphics(fig, out_pdf, 'ContentType', 'vector');
 
 fprintf('\n===== 子载波数对比仿真完成 =====\n');
-fprintf('输出图像：\n- %s\n- %s\n', out_png, out_pdf);
+fprintf('输出图像：\n- %s\n', out_png);
 
 for im = 1:num_m
     T = table(ns_list(:), rmse_ns_1bit_deg(im,:).', rmse_ns_full_deg(im,:).', ...

@@ -170,12 +170,10 @@ set(gca, 'FontName', 'Times New Roman', 'FontSize', 11, 'LineWidth', 1.1);
 
 % 保存结果
 out_png = fullfile(pwd, 'rmse_vs_snr_compare_antenna_1bit_full.png');
-out_pdf = fullfile(pwd, 'rmse_vs_snr_compare_antenna_1bit_full.pdf');
 exportgraphics(fig, out_png, 'Resolution', 300);
-exportgraphics(fig, out_pdf, 'ContentType', 'vector');
 
 fprintf('\n===== 仿真完成 =====\n');
-fprintf('输出图像：\n- %s\n- %s\n', out_png, out_pdf);
+fprintf('输出图像：\n- %s\n', out_png);
 
 for im = 1:num_m
     T = table(snr_db_list(:), rmse_1bit_deg(im,:).', rmse_full_deg(im,:).', ...
@@ -267,12 +265,10 @@ legend('Location', 'northeastoutside');
 set(gca, 'FontName', 'Times New Roman', 'FontSize', 11, 'LineWidth', 1.1);
 
 out_png2 = fullfile(pwd, 'rmse_vs_subcarriers_compare_antenna_1bit_full.png');
-out_pdf2 = fullfile(pwd, 'rmse_vs_subcarriers_compare_antenna_1bit_full.pdf');
 exportgraphics(fig2, out_png2, 'Resolution', 300);
-exportgraphics(fig2, out_pdf2, 'ContentType', 'vector');
 
 fprintf('\n===== 子载波数对比仿真完成 =====\n');
-fprintf('输出图像：\n- %s\n- %s\n', out_png2, out_pdf2);
+fprintf('输出图像：\n- %s\n', out_png2);
 
 %% ===== 本脚本所需局部函数 =====
 function [y, x] = gen_one_frame(p, truth, snr_db)
