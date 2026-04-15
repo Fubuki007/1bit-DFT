@@ -39,43 +39,12 @@ p.sc_per_RB = 12;
 p.Ns = p.N_RB * p.sc_per_RB; % 288
 p.L  = 32;
 
-% 目标参数开关（默认：固定三目标，更稳定）
-use_auto_multi_target = false;   % false: 固定三目标；true: 自动生成多目标
-
-target_num = 3;                  % 仅在 use_auto_multi_target=true 时生效
-
-if ~use_auto_multi_target
-    % 固定三目标（恢复原配置）
-    truth = struct();
-    truth.theta_deg = [-22, 6, 28];
-    truth.R = [32, 40, 55];
-    truth.v = [-6, 8, 14];
-    truth.beta = [1.0*exp(1j*pi/7), ...
-                  0.85*exp(-1j*pi/5), ...
-                  0.70*exp(1j*pi/3)];
-else
-    % 自动多目标（调试/扩展用）
-    theta_min = -60;
-    theta_max = 60;
-    if target_num == 1
-        theta_list = 12;
-    else
-        theta_list = linspace(theta_min, theta_max, target_num);
-    end
-
-    R_list = 25 + 8*(0:target_num-1);
-    v_list = -12 + 24*(0:target_num-1)/max(target_num-1,1);
-
-    beta_amp = 1.0 * (0.85 .^ (0:target_num-1));
-    beta_phase = 2*pi*rand(1, target_num);
-    beta_list = beta_amp .* exp(1j*beta_phase);
-
-    truth = struct();
-    truth.theta_deg = theta_list;
-    truth.R = R_list;
-    truth.v = v_list;
-    truth.beta = beta_list;
-end
+% 目标参数（单目标，便于先复现基线）
+truth = struct();
+truth.theta_deg = 18;     % 真值角度（度）
+truth.R = 40;             % m
+truth.v = 8;              % m/s
+truth.beta = 1.0 * exp(1j * pi/7);
 
 % SNR扫描与Monte Carlo
 snr_db_list =-20:5:20;
@@ -123,15 +92,13 @@ for im = 1:num_m
 
             % 单比特估计
             est_1bit = angle_1bit_dft_estimator(y, x, p_1bit, []);
-            e1_all = wrapTo180(est_1bit.theta_deg - truth.theta_deg(:).');
-            e1 = min(abs(e1_all));  % 与最近真实目标角比较
+            e1 = wrapTo180(est_1bit.theta_deg - truth.theta_deg);
             err2_acc_1bit = err2_acc_1bit + e1.^2;
             step = step + 1;
 
             % 全精度估计
             est_full = angle_1bit_dft_estimator(y, x, p_full, []);
-            e2_all = wrapTo180(est_full.theta_deg - truth.theta_deg(:).');
-            e2 = min(abs(e2_all));  % 与最近真实目标角比较
+            e2 = wrapTo180(est_full.theta_deg - truth.theta_deg);
             err2_acc_full = err2_acc_full + e2.^2;
             step = step + 1;
 
@@ -170,10 +137,12 @@ set(gca, 'FontName', 'Times New Roman', 'FontSize', 11, 'LineWidth', 1.1);
 
 % 保存结果
 out_png = fullfile(pwd, 'rmse_vs_snr_compare_antenna_1bit_full.png');
+out_pdf = fullfile(pwd, 'rmse_vs_snr_compare_antenna_1bit_full.pdf');
 exportgraphics(fig, out_png, 'Resolution', 300);
+exportgraphics(fig, out_pdf, 'ContentType', 'vector');
 
 fprintf('\n===== 仿真完成 =====\n');
-fprintf('输出图像：\n- %s\n', out_png);
+fprintf('输出图像：\n- %s\n- %s\n', out_png, out_pdf);
 
 for im = 1:num_m
     T = table(snr_db_list(:), rmse_1bit_deg(im,:).', rmse_full_deg(im,:).', ...
@@ -182,98 +151,10 @@ for im = 1:num_m
     disp(T);
 end
 
-%% ===== 4) 额外实验：RMSE vs 子载波数（风格与前图一致） =====
-% 固定一个中等SNR，比较不同子载波数下的RMSE变化
-snr_db_fixed = 0;
-ns_list = [72, 144, 288, 576];
-num_ns = numel(ns_list);
-
-rmse_ns_1bit_deg = zeros(num_m, num_ns);
-rmse_ns_full_deg = zeros(num_m, num_ns);
-
-n_total_ns = num_m * num_ns * mc_trials * 2;
-step_ns = 0;
-h2 = waitbar(0, 'RMSE-子载波数对比仿真进行中...');
-cleaner2 = onCleanup(@() close_waitbar_safe(h2));
-
-for im = 1:num_m
-    p_cur = p;
-    p_cur.Mrx = mrx_list(im);
-    p_cur.Ntx = mrx_list(im);
-    p_cur.Na = max(64, 2 * p_cur.Mrx);
-
-    p_1bit = p_cur;
-    p_1bit.enable_1bit_quantization = true;
-    p_1bit.use_bussgang = true;
-
-    p_full = p_cur;
-    p_full.enable_1bit_quantization = false;
-    p_full.use_bussgang = false;
-
-    for in = 1:num_ns
-        p_cur.Ns = ns_list(in);
-        p_1bit.Ns = ns_list(in);
-        p_full.Ns = ns_list(in);
-
-        err2_acc_1bit = 0;
-        err2_acc_full = 0;
-
-        for it = 1:mc_trials
-            [y, x] = gen_one_frame(p_cur, truth, snr_db_fixed);
-
-            est_1bit = angle_1bit_dft_estimator(y, x, p_1bit, []);
-            e1_all = wrapTo180(est_1bit.theta_deg - truth.theta_deg(:).');
-            e1 = min(abs(e1_all));
-            err2_acc_1bit = err2_acc_1bit + e1.^2;
-            step_ns = step_ns + 1;
-
-            est_full = angle_1bit_dft_estimator(y, x, p_full, []);
-            e2_all = wrapTo180(est_full.theta_deg - truth.theta_deg(:).');
-            e2 = min(abs(e2_all));
-            err2_acc_full = err2_acc_full + e2.^2;
-            step_ns = step_ns + 1;
-
-            if mod(step_ns, 20) == 0 || step_ns == n_total_ns
-                waitbar(step_ns / n_total_ns, h2, sprintf('M=%d | Ns=%d | %d/%d', p_cur.Mrx, p_cur.Ns, step_ns, n_total_ns));
-            end
-        end
-
-        rmse_ns_1bit_deg(im, in) = sqrt(err2_acc_1bit / mc_trials);
-        rmse_ns_full_deg(im, in) = sqrt(err2_acc_full / mc_trials);
-    end
-end
-
-fig2 = figure('Color', 'w', 'Position', [120, 120, 980, 580]);
-hold on;
-grid on; box on;
-
-colors = [0.10 0.35 0.75; 0.10 0.60 0.25; 0.55 0.25 0.80];
-for im = 1:num_m
-    c = colors(im, :);
-    plot(ns_list, rmse_ns_1bit_deg(im, :), '-o', 'LineWidth', 1.8, 'MarkerSize', 6, ...
-        'Color', c, 'MarkerFaceColor', c, ...
-        'DisplayName', sprintf('1-bit, M=%d', mrx_list(im)));
-    plot(ns_list, rmse_ns_full_deg(im, :), '--s', 'LineWidth', 1.8, 'MarkerSize', 6, ...
-        'Color', c, 'MarkerFaceColor', 'w', ...
-        'DisplayName', sprintf('Full-Precision, M=%d', mrx_list(im)));
-end
-
-xlabel('Number of Subcarriers (N_s)', 'FontSize', 12, 'FontWeight', 'bold');
-ylabel('Angle RMSE (deg)', 'FontSize', 12, 'FontWeight', 'bold');
-title(sprintf('Angle RMSE vs Subcarriers at SNR = %+d dB', snr_db_fixed), 'FontSize', 13, 'FontWeight', 'bold');
-legend('Location', 'northeastoutside');
-set(gca, 'FontName', 'Times New Roman', 'FontSize', 11, 'LineWidth', 1.1);
-
-out_png2 = fullfile(pwd, 'rmse_vs_subcarriers_compare_antenna_1bit_full.png');
-exportgraphics(fig2, out_png2, 'Resolution', 300);
-
-fprintf('\n===== 子载波数对比仿真完成 =====\n');
-fprintf('输出图像：\n- %s\n', out_png2);
-
 %% ===== 本脚本所需局部函数 =====
 function [y, x] = gen_one_frame(p, truth, snr_db)
-% 生成多目标MIMO-OFDM回波：
-% y(m,i,l) = sum_q beta_q * a_tx^H(theta_q)*x(:,i,l) * exp(j*m*wa_q) * exp(j*i*wr_q) * exp(j*l*wv_q) + z
+% 生成单目标MIMO-OFDM回波：
+% y(m,i,l) = beta * a_tx^H(theta)*x(:,i,l) * exp(j*m*wa) * exp(j*i*wr) * exp(j*l*wv) + z
 
 Ntx = p.Ntx;
 Mrx = p.Mrx;
@@ -282,48 +163,39 @@ L   = p.L;
 
 lambda_c = p.lambda_c;
 
-theta_list = deg2rad(truth.theta_deg(:).');
-R_list = truth.R(:).';
-v_list = truth.v(:).';
-beta_list = truth.beta(:).';
-Q = numel(theta_list);
-
-assert(numel(R_list)==Q && numel(v_list)==Q && numel(beta_list)==Q, ...
-    'truth.theta_deg / R / v / beta 的目标数必须一致');
+theta = deg2rad(truth.theta_deg);
+R = truth.R;
+v = truth.v;
+beta = truth.beta;
 
 % 发射QPSK符号（单位功率）
 const = [1+1j, 1-1j, -1+1j, -1-1j] / sqrt(2);
 idx = randi(4, [Ntx, Ns, L]);
 x = const(idx);
 
+% 导向矢量
 n_tx = (0:Ntx-1).';
+a_tx = exp(1j * 2*pi * n_tx * (p.dt * sin(theta) / lambda_c));
+
 m = (0:Mrx-1).';
 i = 0:(Ns-1);
 l = 0:(L-1);
 
-% 构造无噪回波（多目标叠加）
+wa = -2*pi * p.dr / lambda_c * sin(theta);
+wr = -4*pi * p.df * R / p.c;
+wv =  4*pi * p.T  * v / lambda_c;
+
+phase_m = exp(1j * m * wa);            % [Mrx,1]
+phase_i = exp(1j * i * wr);            % [1,Ns]
+phase_l = exp(1j * l * wv);            % [1,L]
+
+% s(i,l) = a_tx^H x(:,i,l)
+s = squeeze(sum(conj(a_tx) .* x, 1));  % [Ns,L]
+
+% 构造无噪回波
 y_clean = zeros(Mrx, Ns, L);
-for q = 1:Q
-    theta = theta_list(q);
-    R = R_list(q);
-    v = v_list(q);
-    beta = beta_list(q);
-
-    a_tx = exp(1j * 2*pi * n_tx * (p.dt * sin(theta) / lambda_c));
-    s = squeeze(sum(conj(a_tx) .* x, 1));  % [Ns,L]
-
-    wa = -2*pi * p.dr / lambda_c * sin(theta);
-    wr = -4*pi * p.df * R / p.c;
-    wv =  4*pi * p.T  * v / lambda_c;
-
-    phase_m = exp(1j * m * wa);            % [Mrx,1]
-    phase_i = exp(1j * i * wr);            % [1,Ns]
-    phase_l = exp(1j * l * wv);            % [1,L]
-
-    for ll = 1:L
-        y_clean(:, :, ll) = y_clean(:, :, ll) + ...
-            beta * (phase_m * (phase_i .* (s(:, ll).' * phase_l(ll))));
-    end
+for ll = 1:L
+    y_clean(:, :, ll) = beta * (phase_m * (phase_i .* (s(:, ll).' * phase_l(ll))));
 end
 
 % 按目标SNR加噪
