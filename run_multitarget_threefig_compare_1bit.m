@@ -62,19 +62,19 @@ desired_workers = 8;
 snr_db_list = -20:5:20;
 snr_db_fixed = 0;
 antenna_list = [8, 16, 24, 32, 64, 128, 192, 256];
-subcarrier_list = [8, 16, 32, 64, 128, 256, 512, 1024];
+subcarrier_list = [32, 64, 128, 256, 512];
 
 algorithms = struct( ...
     'name', { ...
-        '1-bit + ESPRIT', ...
-        '1-bit + MUSIC', ...
         '1-bit + DFT', ...
-        '1-bit + Improved DFT'}, ...
+        '1-bit + Improved DFT', ...
+        'DFT', ...
+        'Improved DFT'}, ...
     'tag', { ...
-        'onebit_esprit', ...
-        'onebit_music', ...
         'onebit_dft', ...
-        'onebit_dft_improved'});
+        'onebit_dft_improved', ...
+        'full_dft', ...
+        'full_dft_improved'});
 
 num_alg = numel(algorithms);
 checkpoint_file = fullfile(pwd, sprintf('multitarget_threefig_target_%d_1bit_compare_checkpoint.mat', target_idx));
@@ -94,62 +94,96 @@ catch ME
     use_parallel = false;
 end
 
-%% ===== 3) Three sweeps =====
+%% ===== 3) Progress bar =====
+run_snr_sweep = true;
+run_antenna_sweep = false;      % turn on later if needed
+run_subcarrier_sweep = false;   % turn on later if needed
+
+progress_total = numel(snr_db_list) * run_snr_sweep + numel(antenna_list) * run_antenna_sweep + numel(subcarrier_list) * run_subcarrier_sweep;
+progress_done = 0;
+progress_fig = waitbar(0, 'Preparing sweeps...', 'Name', '1-bit DFT experiment progress');
+progress_cleanup = onCleanup(@() safe_close_waitbar(progress_fig));
+
+%% ===== 4) Three sweeps =====
 rmse_vs_snr = zeros(num_alg, numel(snr_db_list));
-rmse_vs_ant = zeros(num_alg, numel(antenna_list));
-rmse_vs_ns = zeros(num_alg, numel(subcarrier_list));
+rmse_vs_ant = nan(num_alg, numel(antenna_list));
+rmse_vs_ns = nan(num_alg, numel(subcarrier_list));
 
 seed_base = 2026041300;
 
-fprintf('===== Sweep 1/3: RMSE vs SNR =====\n');
-for is = 1:numel(snr_db_list)
-    snr_db = snr_db_list(is);
-    p_cur = configure_dft_grid_and_peak_params(p0);
-    rmse_vs_snr(:, is) = run_mc_block(p_cur, truth, algorithms, target_idx, snr_db, mc_trials, use_parallel, seed_base + 10000 * is);
-    fprintf('SNR = %+3d dB finished.\n', snr_db);
-    save(checkpoint_file, 'rmse_vs_snr', 'rmse_vs_ant', 'rmse_vs_ns', 'snr_db_list', 'antenna_list', 'subcarrier_list', 'mc_trials', 'target_idx');
+if run_snr_sweep
+    fprintf('===== Sweep 1/3: RMSE vs SNR =====\n');
+    for is = 1:numel(snr_db_list)
+        snr_db = snr_db_list(is);
+        p_cur = configure_dft_grid_and_peak_params(p0);
+        rmse_vs_snr(:, is) = run_mc_block(p_cur, truth, algorithms, target_idx, snr_db, mc_trials, use_parallel, seed_base + 10000 * is);
+        fprintf('SNR = %+3d dB finished.\n', snr_db);
+        progress_done = progress_done + 1;
+        waitbar(progress_done / max(progress_total, 1), progress_fig, sprintf('Sweep 1/3: SNR = %+3d dB (%d/%d)', snr_db, progress_done, progress_total));
+        save(checkpoint_file, 'rmse_vs_snr', 'rmse_vs_ant', 'rmse_vs_ns', 'snr_db_list', 'antenna_list', 'subcarrier_list', 'mc_trials', 'target_idx');
+    end
 end
 
-fprintf('\n===== Sweep 2/3: RMSE vs antenna number =====\n');
-for ia = 1:numel(antenna_list)
-    p_cur = p0;
-    p_cur.Mrx = antenna_list(ia);
-    % Sweep only the receive-array size while keeping the transmit side fixed.
-    p_cur.Ntx = p0.Ntx;
-    p_cur = configure_dft_grid_and_peak_params(p_cur);
-    rmse_vs_ant(:, ia) = run_mc_block(p_cur, truth, algorithms, target_idx, snr_db_fixed, mc_trials, use_parallel, seed_base + 20000 * ia);
-    fprintf('Mrx = %4d finished.\n', antenna_list(ia));
-    save(checkpoint_file, 'rmse_vs_snr', 'rmse_vs_ant', 'rmse_vs_ns', 'snr_db_list', 'antenna_list', 'subcarrier_list', 'mc_trials', 'target_idx');
+if run_antenna_sweep
+    fprintf('\n===== Sweep 2/3: RMSE vs antenna number =====\n');
+    for ia = 1:numel(antenna_list)
+        p_cur = p0;
+        p_cur.Mrx = antenna_list(ia);
+        % Sweep only the receive-array size while keeping the transmit side fixed.
+        p_cur.Ntx = p0.Ntx;
+        p_cur = configure_dft_grid_and_peak_params(p_cur);
+        rmse_vs_ant(:, ia) = run_mc_block(p_cur, truth, algorithms, target_idx, snr_db_fixed, mc_trials, use_parallel, seed_base + 20000 * ia);
+        fprintf('Mrx = %4d finished.\n', antenna_list(ia));
+        progress_done = progress_done + 1;
+        waitbar(progress_done / max(progress_total, 1), progress_fig, sprintf('Sweep 2/3: Mrx = %4d (%d/%d)', antenna_list(ia), progress_done, progress_total));
+        save(checkpoint_file, 'rmse_vs_snr', 'rmse_vs_ant', 'rmse_vs_ns', 'snr_db_list', 'antenna_list', 'subcarrier_list', 'mc_trials', 'target_idx');
+    end
+else
+    fprintf('\n===== Sweep 2/3: RMSE vs antenna number skipped =====\n');
 end
 
-fprintf('\n===== Sweep 3/3: RMSE vs subcarrier number =====\n');
-for in = 1:numel(subcarrier_list)
-    p_cur = p0;
-    p_cur.Ns = subcarrier_list(in);
-    p_cur = configure_dft_grid_and_peak_params(p_cur);
-    rmse_vs_ns(:, in) = run_mc_block(p_cur, truth, algorithms, target_idx, snr_db_fixed, mc_trials, use_parallel, seed_base + 30000 * in);
-    fprintf('Ns = %3d finished.\n', subcarrier_list(in));
-    save(checkpoint_file, 'rmse_vs_snr', 'rmse_vs_ant', 'rmse_vs_ns', 'snr_db_list', 'antenna_list', 'subcarrier_list', 'mc_trials', 'target_idx');
+if run_subcarrier_sweep
+    fprintf('\n===== Sweep 3/3: RMSE vs subcarrier number =====\n');
+    for in = 1:numel(subcarrier_list)
+        p_cur = p0;
+        p_cur.Ns = subcarrier_list(in);
+        p_cur = configure_dft_grid_and_peak_params(p_cur);
+        rmse_vs_ns(:, in) = run_mc_block(p_cur, truth, algorithms, target_idx, snr_db_fixed, mc_trials, use_parallel, seed_base + 30000 * in);
+        fprintf('Ns = %3d finished.\n', subcarrier_list(in));
+        progress_done = progress_done + 1;
+        waitbar(progress_done / max(progress_total, 1), progress_fig, sprintf('Sweep 3/3: Ns = %3d (%d/%d)', subcarrier_list(in), progress_done, progress_total));
+        save(checkpoint_file, 'rmse_vs_snr', 'rmse_vs_ant', 'rmse_vs_ns', 'snr_db_list', 'antenna_list', 'subcarrier_list', 'mc_trials', 'target_idx');
+    end
+else
+    fprintf('\n===== Sweep 3/3: RMSE vs subcarrier number skipped =====\n');
 end
 
 %% ===== 4) Plot and save =====
 style = {
-    '-',  'o', [0.10, 0.35, 0.75];
-    '--', 's', [0.85, 0.33, 0.10];
-    '-.', '^', [0.10, 0.60, 0.25];
-    '-',  'd', [0.55, 0.20, 0.65]};
+    '-',  'o', [0.10, 0.35, 0.75];   % DFT: blue solid
+    '--', 'o', [0.10, 0.35, 0.75];   % 1-bit + DFT: blue dashed
+    '-',  's', [0.85, 0.33, 0.10];   % Improved DFT: orange solid
+    '--', 's', [0.85, 0.33, 0.10]};  % 1-bit + Improved DFT: orange dashed
 
 fig1 = plot_error_curve(snr_db_list, rmse_vs_snr, algorithms, style, ...
     'SNR (dB)', sprintf('Target %d Angle RMSE (deg)', target_idx), ...
     sprintf('Multi-Target 1-bit Angle RMSE vs SNR (Target %d at %.1f^\\circ)', target_idx, truth.theta_deg(target_idx)));
 
-fig2 = plot_error_curve(antenna_list, rmse_vs_ant, algorithms, style, ...
-    'Receive Antenna Number M_{rx}', sprintf('Target %d Angle RMSE (deg)', target_idx), ...
-    sprintf('Multi-Target 1-bit Angle RMSE vs Receive Antenna Number (SNR = %+d dB, N_{tx} = %d)', snr_db_fixed, p0.Ntx));
+if run_antenna_sweep
+    fig2 = plot_error_curve(antenna_list, rmse_vs_ant, algorithms, style, ...
+        'Receive Antenna Number M_{rx}', sprintf('Target %d Angle RMSE (deg)', target_idx), ...
+        sprintf('Multi-Target 1-bit Angle RMSE vs Receive Antenna Number (SNR = %+d dB, N_{tx} = %d)', snr_db_fixed, p0.Ntx));
+else
+    fig2 = [];
+end
 
-fig3 = plot_error_curve(subcarrier_list, rmse_vs_ns, algorithms, style, ...
-    'Subcarrier Number N_s', sprintf('Target %d Angle RMSE (deg)', target_idx), ...
-    sprintf('Multi-Target 1-bit Angle RMSE vs Subcarrier Number (SNR = %+d dB)', snr_db_fixed));
+if run_subcarrier_sweep
+    fig3 = plot_error_curve(subcarrier_list, rmse_vs_ns, algorithms, style, ...
+        'Subcarrier Number N_s', sprintf('Target %d Angle RMSE (deg)', target_idx), ...
+        sprintf('Multi-Target 1-bit Angle RMSE vs Subcarrier Number (SNR = %+d dB)', snr_db_fixed));
+else
+    fig3 = [];
+end
 
 out_png_1 = fullfile(pwd, sprintf('rmse_vs_snr_target_%d_1bit_esprit_music_dft_improved.png', target_idx));
 out_pdf_1 = fullfile(pwd, sprintf('rmse_vs_snr_target_%d_1bit_esprit_music_dft_improved.pdf', target_idx));
@@ -161,14 +195,20 @@ out_mat = fullfile(pwd, sprintf('multitarget_threefig_target_%d_1bit_compare.mat
 
 exportgraphics(fig1, out_png_1, 'Resolution', 300);
 exportgraphics(fig1, out_pdf_1, 'ContentType', 'vector');
-exportgraphics(fig2, out_png_2, 'Resolution', 300);
-exportgraphics(fig2, out_pdf_2, 'ContentType', 'vector');
-exportgraphics(fig3, out_png_3, 'Resolution', 300);
-exportgraphics(fig3, out_pdf_3, 'ContentType', 'vector');
+
+if run_antenna_sweep
+    exportgraphics(fig2, out_png_2, 'Resolution', 300);
+    exportgraphics(fig2, out_pdf_2, 'ContentType', 'vector');
+end
+
+if run_subcarrier_sweep
+    exportgraphics(fig3, out_png_3, 'Resolution', 300);
+    exportgraphics(fig3, out_pdf_3, 'ContentType', 'vector');
+end
 
 save(out_mat, ...
     'p0', 'truth', 'algorithms', 'target_idx', 'mc_trials', 'desired_workers', ...
-    'target_match_mode', ...
+    'target_match_mode', 'run_snr_sweep', 'run_antenna_sweep', 'run_subcarrier_sweep', ...
     'snr_db_list', 'snr_db_fixed', 'antenna_list', 'subcarrier_list', ...
     'rmse_vs_snr', 'rmse_vs_ant', 'rmse_vs_ns');
 
@@ -188,13 +228,17 @@ disp('RMSE vs SNR:');
 disp(array2table([snr_db_list(:), rmse_vs_snr.'], ...
     'VariableNames', [{'SNR_dB'}, matlab.lang.makeValidName({algorithms.name})]));
 
-disp('RMSE vs Antenna Number:');
-disp(array2table([antenna_list(:), rmse_vs_ant.'], ...
-    'VariableNames', [{'ReceiveAntennaNumber'}, matlab.lang.makeValidName({algorithms.name})]));
+if run_antenna_sweep
+    disp('RMSE vs Antenna Number:');
+    disp(array2table([antenna_list(:), rmse_vs_ant.'], ...
+        'VariableNames', [{'ReceiveAntennaNumber'}, matlab.lang.makeValidName({algorithms.name})]));
+end
 
-disp('RMSE vs Subcarrier Number:');
-disp(array2table([subcarrier_list(:), rmse_vs_ns.'], ...
-    'VariableNames', [{'SubcarrierNumber'}, matlab.lang.makeValidName({algorithms.name})]));
+if run_subcarrier_sweep
+    disp('RMSE vs Subcarrier Number:');
+    disp(array2table([subcarrier_list(:), rmse_vs_ns.'], ...
+        'VariableNames', [{'SubcarrierNumber'}, matlab.lang.makeValidName({algorithms.name})]));
+end
 
 %% ===== Local functions =====
 function rmse_vec = run_mc_block(p, truth, algorithms, target_idx, snr_db, mc_trials, use_parallel, seed_offset)
@@ -214,6 +258,12 @@ end
 rmse_vec = sqrt(mean(err_sq, 2));
 end
 
+function safe_close_waitbar(h)
+if ~isempty(h) && isgraphics(h)
+    close(h);
+end
+end
+
 function err_sq_vec = run_one_trial(p, truth, algorithms, target_idx, snr_db, trial_seed)
 rng(trial_seed, 'twister');
 [y, x] = gen_multi_target_frame(p, truth, snr_db);
@@ -223,10 +273,6 @@ err_sq_vec = zeros(num_alg, 1);
 
 for ia = 1:num_alg
     switch algorithms(ia).tag
-        case 'onebit_esprit'
-            theta_hat_all = estimate_angles_esprit_1bit(y, p);
-        case 'onebit_music'
-            theta_hat_all = estimate_angles_music_1bit(y, p);
         case 'onebit_dft'
             theta_hat_all = estimate_angles_dft_1bit(y, p);
         case 'onebit_dft_improved'
@@ -236,6 +282,16 @@ for ia = 1:num_alg
             p_imp.enable_peak_search = true;
             p_imp.enable_interp = true;
             est = angle_1bit_dft_multi_estimator(y, x, p_imp);
+            theta_hat_all = est.theta_deg(:).';
+        case 'full_dft'
+            theta_hat_all = estimate_angles_dft(y, p);
+        case 'full_dft_improved'
+            p_full = p;
+            p_full.enable_1bit_quantization = false;
+            p_full.use_bussgang = false;
+            p_full.enable_peak_search = true;
+            p_full.enable_interp = true;
+            est = angle_1bit_dft_multi_estimator(y, x, p_full);
             theta_hat_all = est.theta_deg(:).';
         otherwise
             error('Unknown algorithm tag: %s', algorithms(ia).tag);
@@ -338,6 +394,19 @@ end
 function theta_hat_deg = estimate_angles_dft_1bit(y, p)
 Yq = sign(real(y)) + 1j * sign(imag(y));
 Ysp = fftshift(fft(Yq, p.Na, 1), 1) / p.Mrx;
+angle_spectrum = squeeze(mean(mean(abs(Ysp).^2, 3), 2));
+
+peak_idx = select_topk_from_spectrum(angle_spectrum, p.num_targets, p.selection_guard_bins);
+na_axis = (-floor(p.Na / 2)):(ceil(p.Na / 2) - 1);
+na_hat = na_axis(peak_idx);
+arg = -na_hat * p.lambda_c / (p.dr * p.Na);
+arg = max(-1, min(1, arg));
+theta_hat_deg = sort(rad2deg(asin(arg)), 'ascend');
+theta_hat_deg = complete_target_list(theta_hat_deg, p.num_targets);
+end
+
+function theta_hat_deg = estimate_angles_dft(y, p)
+Ysp = fftshift(fft(y, p.Na, 1), 1) / p.Mrx;
 angle_spectrum = squeeze(mean(mean(abs(Ysp).^2, 3), 2));
 
 peak_idx = select_topk_from_spectrum(angle_spectrum, p.num_targets, p.selection_guard_bins);
