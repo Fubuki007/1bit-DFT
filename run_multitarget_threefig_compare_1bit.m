@@ -54,24 +54,32 @@ snr_db_list = -20:5:20;
 snr_db_fixed = 0;
 antenna_list = [8, 16, 64, 128, 256];
 subcarrier_list = [16, 32, 64, 128, 256, 512];
-mc_trials = 80;
+mc_trials = 200;
 
 % 并行配置
 enable_parallel = true;
 desired_workers = 8;
 
-% 统一算法列表（四条曲线）
+% 统一算法列表（有/无单比特 + 多算法）
 algorithms = struct( ...
     'name', { ...
         '1-bit + ESPRIT', ...
+        'Full + ESPRIT', ...
         '1-bit + MUSIC', ...
+        'Full + MUSIC', ...
         '1-bit + DFT', ...
-        '1-bit + Improved DFT'}, ...
+        'Full + DFT', ...
+        '1-bit + Improved DFT', ...
+        'Full + Improved DFT'}, ...
     'tag', { ...
         'onebit_esprit', ...
+        'full_esprit', ...
         'onebit_music', ...
+        'full_music', ...
         'onebit_dft', ...
-        'onebit_dft_improved'});
+        'full_dft', ...
+        'onebit_dft_improved', ...
+        'full_dft_improved'});
 num_alg = numel(algorithms);
 
 checkpoint_file = fullfile(pwd, sprintf('multitarget_threefig_target_%d_1bit_compare_checkpoint.mat', target_idx));
@@ -226,16 +234,28 @@ err2_vec = zeros(num_alg, 1);
 for ia = 1:num_alg
     switch algorithms(ia).tag
         case 'onebit_esprit'
-            theta_hat_all = estimate_angles_esprit_1bit(y, p);
+            theta_hat_all = estimate_angles_esprit_1bit(y, p, true);
+
+        case 'full_esprit'
+            theta_hat_all = estimate_angles_esprit_1bit(y, p, false);
 
         case 'onebit_music'
-            theta_hat_all = estimate_angles_music_1bit(y, p);
+            theta_hat_all = estimate_angles_music_1bit(y, p, true);
+
+        case 'full_music'
+            theta_hat_all = estimate_angles_music_1bit(y, p, false);
 
         case 'onebit_dft'
-            theta_hat_all = estimate_angles_dft_1bit(y, p, false);
+            theta_hat_all = estimate_angles_dft_1bit(y, p, false, true);
+
+        case 'full_dft'
+            theta_hat_all = estimate_angles_dft_1bit(y, p, false, false);
 
         case 'onebit_dft_improved'
-            theta_hat_all = estimate_angles_dft_1bit(y, p, true);
+            theta_hat_all = estimate_angles_dft_1bit(y, p, true, true);
+
+        case 'full_dft_improved'
+            theta_hat_all = estimate_angles_dft_1bit(y, p, true, false);
 
         otherwise
             error('未知算法标签: %s', algorithms(ia).tag);
@@ -297,9 +317,13 @@ z = noise_sigma * (randn(Mrx,Ns,L) + 1j*randn(Mrx,Ns,L));
 y = y_clean + z;
 end
 
-function theta_hat_deg = estimate_angles_esprit_1bit(y, p)
-% 1-bit ESPRIT
-Yq = sign(real(y)) + 1j*sign(imag(y));
+function theta_hat_deg = estimate_angles_esprit_1bit(y, p, use_1bit)
+% ESPRIT
+if use_1bit
+    Yq = sign(real(y)) + 1j*sign(imag(y));
+else
+    Yq = y;
+end
 Ysnap = reshape(Yq, p.Mrx, []);
 R = (Ysnap * Ysnap') / size(Ysnap,2);
 R = forward_backward_average(R);
@@ -318,11 +342,16 @@ sin_theta = max(-1, min(1, real(sin_theta)));
 
 theta_hat_deg = rad2deg(asin(sin_theta)).';
 theta_hat_deg = complete_target_list(theta_hat_deg, p.num_targets);
+theta_hat_deg = enforce_sorted_unique(theta_hat_deg);
 end
 
-function theta_hat_deg = estimate_angles_music_1bit(y, p)
-% 1-bit MUSIC
-Yq = sign(real(y)) + 1j*sign(imag(y));
+function theta_hat_deg = estimate_angles_music_1bit(y, p, use_1bit)
+% MUSIC
+if use_1bit
+    Yq = sign(real(y)) + 1j*sign(imag(y));
+else
+    Yq = y;
+end
 Ysnap = reshape(Yq, p.Mrx, []);
 R = (Ysnap * Ysnap') / size(Ysnap,2);
 R = forward_backward_average(R);
@@ -340,11 +369,16 @@ pseudo = 1 ./ max(den, p.eps_div);
 peak_idx = pick_topk_peaks(pseudo(:), p.num_targets, 8);
 theta_hat_deg = theta_grid(peak_idx);
 theta_hat_deg = complete_target_list(theta_hat_deg, p.num_targets);
+theta_hat_deg = enforce_sorted_unique(theta_hat_deg);
 end
 
-function theta_hat_deg = estimate_angles_dft_1bit(y, p, use_interp)
-% 1-bit DFT / Improved DFT
-Yq = sign(real(y)) + 1j*sign(imag(y));
+function theta_hat_deg = estimate_angles_dft_1bit(y, p, use_interp, use_1bit)
+% DFT / Improved DFT
+if use_1bit
+    Yq = sign(real(y)) + 1j*sign(imag(y));
+else
+    Yq = y;
+end
 Ysp = fftshift(fft(Yq, p.Na, 1), 1) / p.Mrx;
 spec = squeeze(mean(mean(abs(Ysp).^2,3),2));
 
@@ -372,6 +406,7 @@ arg = -na_hat * p.lambda_c / (p.dr * p.Na);
 arg = max(-1, min(1, arg));
 theta_hat_deg = rad2deg(asin(arg));
 theta_hat_deg = complete_target_list(theta_hat_deg, p.num_targets);
+theta_hat_deg = enforce_sorted_unique(theta_hat_deg);
 end
 
 function peak_idx = pick_topk_peaks(spec, k, guard)
@@ -415,6 +450,12 @@ elseif numel(theta_list) < k
 elseif numel(theta_list) > k
     theta_list = theta_list(1:k);
 end
+end
+
+function theta_list = enforce_sorted_unique(theta_list)
+% 保证输出角度单调且去重，减少后续错配
+theta_list = unique(round(theta_list, 6), 'stable');
+theta_list = sort(theta_list, 'ascend');
 end
 
 function Rfb = forward_backward_average(R)
@@ -467,7 +508,7 @@ end
 xlabel(xlab_txt, 'FontSize', 12, 'FontWeight', 'bold');
 ylabel(ylab_txt, 'FontSize', 12, 'FontWeight', 'bold');
 title(ttl_txt, 'FontSize', 13, 'FontWeight', 'bold');
-legend('Location', 'northeastoutside');
+legend('Location', 'northeast');
 set(gca, 'YScale', 'log', 'FontName', 'Times New Roman', 'FontSize', 11, 'LineWidth', 1.1);
 end
 
