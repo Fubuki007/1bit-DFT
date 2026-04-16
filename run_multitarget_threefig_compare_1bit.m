@@ -56,12 +56,12 @@ truth.beta = [ ...
 
 target_idx = 4;                  % Evaluate the 4th target only.
 target_match_mode = 'nearest_true_angle';
-mc_trials = 100;
+mc_trials = 250;
 desired_workers = 8;
 
-snr_db_list = -20:5:20;
-snr_db_fixed = 0;
-antenna_list = [8, 16, 24, 32, 64, 128, 192, 256];
+snr_db_list = -20:5:30;
+snr_db_fixed = 10;
+antenna_list = [8, 16, 24, 32, 64, 128, 256];
 subcarrier_list = [32, 64, 128, 256, 512];
 
 algorithms = struct( ...
@@ -95,8 +95,8 @@ catch ME
 end
 
 %% ===== 3) Progress bar =====
-run_snr_sweep = true;
-run_antenna_sweep = false;      % turn on later if needed
+run_snr_sweep = false;
+run_antenna_sweep = true;      % turn on later if needed
 run_subcarrier_sweep = false;   % turn on later if needed
 
 progress_total = numel(snr_db_list) * run_snr_sweep + numel(antenna_list) * run_antenna_sweep + numel(subcarrier_list) * run_subcarrier_sweep;
@@ -159,11 +159,16 @@ else
 end
 
 %% ===== 4) Plot and save =====
+% Color scheme:
+% - DFT family: blue
+% - Improved DFT family: orange
+% - Solid line: full-precision
+% - Dashed line: 1-bit
 style = {
-    '-',  'o', [0.10, 0.35, 0.75];   % DFT: blue solid
-    '--', 'o', [0.10, 0.35, 0.75];   % 1-bit + DFT: blue dashed
-    '-',  's', [0.85, 0.33, 0.10];   % Improved DFT: orange solid
-    '--', 's', [0.85, 0.33, 0.10]};  % 1-bit + Improved DFT: orange dashed
+    '--', 'o', [0.00, 0.45, 0.74];   % 1-bit + DFT: blue circle dashed
+    '--', 's', [0.85, 0.33, 0.10];   % 1-bit + Improved DFT: orange square dashed
+    '-',  'o', [0.00, 0.45, 0.74];   % DFT: blue circle solid
+    '-',  's', [0.85, 0.33, 0.10]};  % Improved DFT: orange square solid
 
 fig1 = plot_error_curve(snr_db_list, rmse_vs_snr, algorithms, style, ...
     'SNR (dB)', sprintf('Target %d Angle RMSE (deg)', target_idx), ...
@@ -185,12 +190,17 @@ else
     fig3 = [];
 end
 
+% Spectrum comparison figure: DFT peak search vs improved DFT peak search.
+s
+
 out_png_1 = fullfile(pwd, sprintf('rmse_vs_snr_target_%d_1bit_esprit_music_dft_improved.png', target_idx));
 out_pdf_1 = fullfile(pwd, sprintf('rmse_vs_snr_target_%d_1bit_esprit_music_dft_improved.pdf', target_idx));
 out_png_2 = fullfile(pwd, sprintf('rmse_vs_antenna_target_%d_1bit_esprit_music_dft_improved.png', target_idx));
 out_pdf_2 = fullfile(pwd, sprintf('rmse_vs_antenna_target_%d_1bit_esprit_music_dft_improved.pdf', target_idx));
 out_png_3 = fullfile(pwd, sprintf('rmse_vs_subcarrier_target_%d_1bit_esprit_music_dft_improved.png', target_idx));
 out_pdf_3 = fullfile(pwd, sprintf('rmse_vs_subcarrier_target_%d_1bit_esprit_music_dft_improved.pdf', target_idx));
+out_png_4 = fullfile(pwd, sprintf('spectrum_peak_compare_target_%d_dft_vs_improved_dft.png', target_idx));
+out_pdf_4 = fullfile(pwd, sprintf('spectrum_peak_compare_target_%d_dft_vs_improved_dft.pdf', target_idx));
 out_mat = fullfile(pwd, sprintf('multitarget_threefig_target_%d_1bit_compare.mat', target_idx));
 
 exportgraphics(fig1, out_png_1, 'Resolution', 300);
@@ -206,11 +216,14 @@ if run_subcarrier_sweep
     exportgraphics(fig3, out_pdf_3, 'ContentType', 'vector');
 end
 
+exportgraphics(fig4, out_png_4, 'Resolution', 300);
+exportgraphics(fig4, out_pdf_4, 'ContentType', 'vector');
+
 save(out_mat, ...
     'p0', 'truth', 'algorithms', 'target_idx', 'mc_trials', 'desired_workers', ...
     'target_match_mode', 'run_snr_sweep', 'run_antenna_sweep', 'run_subcarrier_sweep', ...
     'snr_db_list', 'snr_db_fixed', 'antenna_list', 'subcarrier_list', ...
-    'rmse_vs_snr', 'rmse_vs_ant', 'rmse_vs_ns');
+    'rmse_vs_snr', 'rmse_vs_ant', 'rmse_vs_ns', 'out_png_4', 'out_pdf_4');
 
 fprintf('\n===== Three-figure experiment finished =====\n');
 fprintf('Target under test: #%d, truth angle = %.2f deg\n', target_idx, truth.theta_deg(target_idx));
@@ -221,6 +234,8 @@ fprintf('- %s\n', out_png_2);
 fprintf('- %s\n', out_pdf_2);
 fprintf('- %s\n', out_png_3);
 fprintf('- %s\n', out_pdf_3);
+fprintf('- %s\n', out_png_4);
+fprintf('- %s\n', out_pdf_4);
 fprintf('- %s\n', out_mat);
 
 disp(' ');
@@ -562,6 +577,7 @@ title(title_text, 'FontSize', 13, 'FontWeight', 'bold');
 legend('Location', 'northeastoutside');
 set(gca, 'YScale', 'log', 'FontName', 'Times New Roman', 'FontSize', 11, 'LineWidth', 1.1);
 end
+
 
 function x = wrap_to_180(x)
 x = mod(x + 180, 360) - 180;
