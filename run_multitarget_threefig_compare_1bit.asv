@@ -56,10 +56,10 @@ truth.beta = [ ...
 
 target_idx_list = 3:5;          % Evaluate 3 targets and average their RMSE.
 target_match_mode = 'nearest_true_angle';
-mc_trials = 500;
+mc_trials = 80;
 desired_workers = 8;
 
-snr_db_list = -20:5:30;
+snr_db_list = -10:4:10;
 snr_db_fixed = 10;
 antenna_list = [8,16,33,64,128,256];
 subcarrier_list = [16, 32, 64, 128, 256];
