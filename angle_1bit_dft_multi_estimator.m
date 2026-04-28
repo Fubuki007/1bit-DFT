@@ -5,7 +5,13 @@ function [est, debug] = angle_1bit_dft_multi_estimator(y, x, p)
 %   2) spatial DFT
 %   3) adaptive scaling factor for communication-symbol removal
 %   4) angle-spectrum accumulation
-%   5) optional peak search and optional parabolic interpolation
+%   5) optional peak search
+%   6) optional parabolic interpolation
+%
+%   Interpretation of flags:
+%   - use_bussgang = true  -> enable amplitude compensation
+%   - enable_interp = true  -> enable parabolic interpolation
+%   - using both flags      -> combined improved-DFT branch
 %
 %   Inputs
 %   ------
@@ -80,6 +86,7 @@ lambda_c = p.c / p.fc;
 Na = p.Na;
 
 % Step 1: optional 1-bit quantization and Bussgang amplitude recovery.
+% This is the amplitude-compensation stage for the 1-bit branch.
 if p.enable_1bit_quantization
     y_proc = sign(real(y)) + 1j * sign(imag(y));
 else
@@ -142,7 +149,8 @@ for ia = 1:Na
     end
 end
 
-% Step 5: optional peak search, then optional interpolation.
+% Step 5: optional peak search.
+% Step 6: optional parabolic interpolation.
 cfar_threshold = zeros(Na, 1);
 cfar_detect = false(Na, 1);
 if p.enable_cfar

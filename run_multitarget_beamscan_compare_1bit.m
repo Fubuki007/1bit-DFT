@@ -43,9 +43,9 @@ p0.cfar_pfa = 1e-3;
 p0.selection_guard_bins = 4;
 
 truth = struct();
-truth.theta_deg = [-36, -18, 0, 18.4, 36];
-truth.R = [34, 50, 66, 82, 98];
-truth.v = [-12, -6, 0, 6, 12];
+truth.theta_deg = [-36.7, -18.4, 0, 18.4, 36.9];
+truth.R = [34.5, 50.1, 66.6, 82.2, 98.1];
+truth.v = [-12.88, -6.6, 0.4, 6.2, 12.8];
 truth.beta = [ ...
     1.00 * exp(1j * pi / 9), ...
     0.96 * exp(1j * 2 * pi / 7), ...
@@ -54,7 +54,7 @@ truth.beta = [ ...
     0.90 * exp(1j * 4 * pi / 11)];
 
 target_idx_list = 3:5;     % average over three targets
-snr_db = 10;               % fixed SNR for the beam-scan figure
+snr_db = 15;               % fixed SNR for the beam-scan figure
 mc_trials = 100;
 desired_workers = 8;
 seed_base = 2026041300;
@@ -62,11 +62,15 @@ seed_base = 2026041300;
 algorithms = struct( ...
     'name', { ...
         '1-bit + DFT', ...
+        '1-bit + Amplitude Compensation', ...
+        '1-bit + Amplitude Compensation + Parabolic Interpolation', ...
         '1-bit + Improved DFT', ...
         'DFT', ...
         'Improved DFT'}, ...
     'tag', { ...
         'onebit_dft', ...
+        'onebit_ampcomp', ...
+        'onebit_ampcomp_interp', ...
         'onebit_dft_improved', ...
         'full_dft', ...
         'full_dft_improved'});
@@ -121,10 +125,12 @@ beam_spectrum_mean = beam_spectrum_accum / mc_trials;
 
 %% ===== 4) Plot =====
 style = {
-    '--', 'o', [0.00, 0.45, 0.74];
-    '--', 's', [0.85, 0.33, 0.10];
-    '-',  'o', [0.00, 0.45, 0.74];
-    '-',  's', [0.85, 0.33, 0.10]};
+    '--', 'o', [0.00, 0.45, 0.74];   % 1-bit + DFT
+    '--', 'd', [0.00, 0.65, 0.00];   % 1-bit + amplitude compensation (green dashed)
+    '--', '^', [0.93, 0.69, 0.13];   % 1-bit + amplitude compensation + interpolation (yellow dashed)
+    '--', 's', [0.85, 0.33, 0.10];   % 1-bit + Improved DFT
+    '-',  'o', [0.00, 0.45, 0.74];   % DFT
+    '-',  's', [0.85, 0.33, 0.10]};  % Improved DFT
 
 fig = figure('Color', 'w', 'Position', [120, 120, 1040, 620]);
 hold on;
@@ -176,6 +182,20 @@ for ia = 1:num_alg
             p_tmp.use_bussgang = false;
             p_tmp.enable_peak_search = false;
             p_tmp.enable_interp = false;
+            [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
+        case 'onebit_ampcomp'
+            p_tmp = p;
+            p_tmp.enable_1bit_quantization = true;
+            p_tmp.use_bussgang = true;
+            p_tmp.enable_peak_search = false;
+            p_tmp.enable_interp = false;
+            [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
+        case 'onebit_ampcomp_interp'
+            p_tmp = p;
+            p_tmp.enable_1bit_quantization = true;
+            p_tmp.use_bussgang = true;
+            p_tmp.enable_peak_search = false;
+            p_tmp.enable_interp = true;
             [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
         case 'onebit_dft_improved'
             p_tmp = p;

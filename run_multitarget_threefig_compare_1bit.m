@@ -1,14 +1,17 @@
 %% run_multitarget_threefig_compare_1bit.m
-% Multi-target 1-bit angle-RMSE comparison with three x-axes.
+% Multi-target 1-bit angle RMSE comparison with three x-axes:
 % 1) SNR
-% 2) antenna number
-% 3) subcarrier number
+% 2) Receive antenna number
+% 3) Subcarrier number
 %
 % Curves:
-% - 1-bit + ESPRIT
-% - 1-bit + MUSIC
 % - 1-bit + DFT
-% - 1-bit + improved DFT in the paper (scaling factor + interpolation)
+% - 1-bit + Parabolic Interpolation
+% - DFT
+%
+% Notes:
+% - "Parabolic Interpolation" refers to the peak refinement step controlled
+%   by enable_interp.
 
 clear; clc; close all;
 rng(20260413, 'twister');
@@ -37,6 +40,7 @@ p0.num_targets = 5;
 p0.eps_div = 1e-10;
 
 % Peak-selection settings for DFT-family methods.
+% These parameters are used by the DFT-family peak search and refinement steps.
 p0.enable_cfar = true;
 p0.cfar_num_train = 16;
 p0.cfar_num_guard = 4;
@@ -67,14 +71,12 @@ subcarrier_list = [16, 32, 64, 128, 256];
 algorithms = struct( ...
     'name', { ...
         '1-bit + DFT', ...
-        '1-bit + Improved DFT', ...
-        'DFT', ...
-        'Improved DFT'}, ...
+        '1-bit + Parabolic Interpolation', ...
+        'DFT'}, ...
     'tag', { ...
         'onebit_dft', ...
-        'onebit_dft_improved', ...
-        'full_dft', ...
-        'full_dft_improved'});
+        'onebit_interp', ...
+        'full_dft'});
 
 num_alg = numel(algorithms);
 checkpoint_file = fullfile(pwd, sprintf('multitarget_threefig_target_%d_%d_%d_1bit_compare_checkpoint.mat', target_idx_list(1), target_idx_list(2), target_idx_list(3)));
@@ -159,16 +161,17 @@ else
 end
 
 %% ===== 4) Plot and save =====
-% Color scheme:
-% - DFT family: blue
-% - Improved DFT family: orange
-% - Solid line: full-precision
-% - Dashed line: 1-bit
+% 配色说明：
+% - 蓝色：DFT
+% - 橙色：改进 DFT
+% - 虚线：1-bit 分支
+% - 实线：全精度分支
 style = {
-    '--', 'o', [0.00, 0.45, 0.74];   % 1-bit + DFT: blue circle dashed
-    '--', 's', [0.85, 0.33, 0.10];   % 1-bit + Improved DFT: orange square dashed
-    '-',  'o', [0.00, 0.45, 0.74];   % DFT: blue circle solid
-    '-',  's', [0.85, 0.33, 0.10]};  % Improved DFT: orange square solid
+    '--', 'o', [0.00, 0.45, 0.74];   % 1-bit + DFT：蓝色虚线圆点
+    '--', 'd', [0.00, 0.65, 0.00];   % 1-bit + 幅度补偿：绿色虚线菱形
+    '--', '^', [0.93, 0.69, 0.13];   % 1-bit + 抛物线插值：黄色虚线三角
+    '--', 's', [0.85, 0.33, 0.10];   % 1-bit + 幅度补偿 + 抛物线插值：橙色虚线方块
+    '-',  'o', [0.00, 0.45, 0.74]};  % DFT：蓝色实线圆点
 
 fig1 = [];
 if run_snr_sweep
@@ -293,7 +296,23 @@ for ia = 1:num_alg
     switch algorithms(ia).tag
         case 'onebit_dft'
             theta_hat_all = estimate_angles_dft_1bit(y, p);
-        case 'onebit_dft_improved'
+        case 'onebit_ampcomp'
+            p_imp = p;
+            p_imp.enable_1bit_quantization = true;
+            p_imp.use_bussgang = true;
+            p_imp.enable_peak_search = true;
+            p_imp.enable_interp = false;
+            est = angle_1bit_dft_multi_estimator(y, x, p_imp);
+            theta_hat_all = est.theta_deg(:).';
+        case 'onebit_interp'
+            p_imp = p;
+            p_imp.enable_1bit_quantization = true;
+            p_imp.use_bussgang = false;
+            p_imp.enable_peak_search = true;
+            p_imp.enable_interp = true;
+            est = angle_1bit_dft_multi_estimator(y, x, p_imp);
+            theta_hat_all = est.theta_deg(:).';
+        case 'onebit_ampcomp_interp'
             p_imp = p;
             p_imp.enable_1bit_quantization = true;
             p_imp.use_bussgang = true;
