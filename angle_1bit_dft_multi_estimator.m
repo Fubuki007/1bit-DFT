@@ -11,7 +11,7 @@ function [est, debug] = angle_1bit_dft_multi_estimator(y, x, p)
 %   Interpretation of flags:
 %   - use_bussgang = true  -> enable amplitude compensation
 %   - enable_interp = true  -> enable parabolic interpolation
-%   - using both flags      -> combined improved-DFT branch
+%   - using both flags      -> combined Parabolic Interpolation branch
 %
 %   Inputs
 %   ------

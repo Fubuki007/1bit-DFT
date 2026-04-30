@@ -154,7 +154,7 @@ if run_subcarrier_sweep
         fprintf('Ns = %3d finished.\n', subcarrier_list(in));
         progress_done = progress_done + 1;
         waitbar(progress_done / max(progress_total, 1), progress_fig, sprintf('Sweep 3/3: Ns = %3d (%d/%d)', subcarrier_list(in), progress_done, progress_total));
-        save(checkpoint_file, 'rmse_vs_snr', 'rmse_vs_ant', 'rmse_vs_ns', 'snr_db_list', 'antenna_list', 'subcarrier_list', 'mc_trials', 'target_idx');
+        save(checkpoint_file, 'rmse_vs_snr', 'rmse_vs_ant', 'rmse_vs_ns', 'snr_db_list', 'antenna_list', 'subcarrier_list', 'mc_trials', 'target_idx_list');
     end
 else
     fprintf('\n===== Sweep 3/3: RMSE vs subcarrier number skipped =====\n');
@@ -163,14 +163,14 @@ end
 %% ===== 4) Plot and save =====
 % 配色说明：
 % - 蓝色：DFT
-% - 橙色：改进 DFT
+% - 橙色：Parabolic Interpolation
 % - 虚线：1-bit 分支
 % - 实线：全精度分支
 style = {
     '--', 'o', [0.00, 0.45, 0.74];   % 1-bit + DFT：蓝色虚线圆点
-    '--', 'd', [0.00, 0.65, 0.00];   % 1-bit + 幅度补偿：绿色虚线菱形
-    '--', '^', [0.93, 0.69, 0.13];   % 1-bit + 抛物线插值：黄色虚线三角
-    '--', 's', [0.85, 0.33, 0.10];   % 1-bit + 幅度补偿 + 抛物线插值：橙色虚线方块
+    '--', 'd', [0.00, 0.65, 0.00];   % 1-bit + Parabolic Interpolation：绿色虚线菱形
+    '--', '^', [0.93, 0.69, 0.13];   % 1-bit + Parabolic Interpolation：黄色虚线三角
+    '--', 's', [0.85, 0.33, 0.10];   % 1-bit + Parabolic Interpolation：橙色虚线方块
     '-',  'o', [0.00, 0.45, 0.74]};  % DFT：蓝色实线圆点
 
 fig1 = [];
@@ -296,14 +296,6 @@ for ia = 1:num_alg
     switch algorithms(ia).tag
         case 'onebit_dft'
             theta_hat_all = estimate_angles_dft_1bit(y, p);
-        case 'onebit_ampcomp'
-            p_imp = p;
-            p_imp.enable_1bit_quantization = true;
-            p_imp.use_bussgang = true;
-            p_imp.enable_peak_search = true;
-            p_imp.enable_interp = false;
-            est = angle_1bit_dft_multi_estimator(y, x, p_imp);
-            theta_hat_all = est.theta_deg(:).';
         case 'onebit_interp'
             p_imp = p;
             p_imp.enable_1bit_quantization = true;
@@ -312,17 +304,9 @@ for ia = 1:num_alg
             p_imp.enable_interp = true;
             est = angle_1bit_dft_multi_estimator(y, x, p_imp);
             theta_hat_all = est.theta_deg(:).';
-        case 'onebit_ampcomp_interp'
-            p_imp = p;
-            p_imp.enable_1bit_quantization = true;
-            p_imp.use_bussgang = true;
-            p_imp.enable_peak_search = true;
-            p_imp.enable_interp = true;
-            est = angle_1bit_dft_multi_estimator(y, x, p_imp);
-            theta_hat_all = est.theta_deg(:).';
         case 'full_dft'
             theta_hat_all = estimate_angles_dft(y, p);
-        case 'full_dft_improved'
+        case 'full_dft_parabolic_interpolation'
             p_full = p;
             p_full.enable_1bit_quantization = false;
             p_full.use_bussgang = false;

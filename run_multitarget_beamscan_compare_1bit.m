@@ -5,9 +5,9 @@
 % This script is standalone and does NOT reuse the RMSE plotting script.
 % It compares:
 % - 1-bit + DFT
-% - 1-bit + Improved DFT
+% - 1-bit + Parabolic Interpolation
 % - DFT
-% - Improved DFT
+% - DFT + Parabolic Interpolation
 
 clear; clc; close all;
 rng(20260413, 'twister');
@@ -62,18 +62,14 @@ seed_base = 2026041300;
 algorithms = struct( ...
     'name', { ...
         '1-bit + DFT', ...
-        '1-bit + Amplitude Compensation', ...
-        '1-bit + Amplitude Compensation + Parabolic Interpolation', ...
-        '1-bit + Improved DFT', ...
+        '1-bit + Parabolic Interpolation', ...
         'DFT', ...
-        'Improved DFT'}, ...
+        'DFT + Parabolic Interpolation'}, ...
     'tag', { ...
         'onebit_dft', ...
-        'onebit_ampcomp', ...
-        'onebit_ampcomp_interp', ...
-        'onebit_dft_improved', ...
+        'onebit_parabolic_interpolation', ...
         'full_dft', ...
-        'full_dft_improved'});
+        'full_dft_parabolic_interpolation'});
 
 num_alg = numel(algorithms);
 
@@ -126,11 +122,9 @@ beam_spectrum_mean = beam_spectrum_accum / mc_trials;
 %% ===== 4) Plot =====
 style = {
     '--', 'o', [0.00, 0.45, 0.74];   % 1-bit + DFT
-    '--', 'd', [0.00, 0.65, 0.00];   % 1-bit + amplitude compensation (green dashed)
-    '--', '^', [0.93, 0.69, 0.13];   % 1-bit + amplitude compensation + interpolation (yellow dashed)
-    '--', 's', [0.85, 0.33, 0.10];   % 1-bit + Improved DFT
+    '--', 'd', [0.00, 0.65, 0.00];   % 1-bit + Parabolic Interpolation
     '-',  'o', [0.00, 0.45, 0.74];   % DFT
-    '-',  's', [0.85, 0.33, 0.10]};  % Improved DFT
+    '-',  's', [0.85, 0.33, 0.10]};  % DFT + Parabolic Interpolation
 
 fig = figure('Color', 'w', 'Position', [120, 120, 1040, 620]);
 hold on;
@@ -157,7 +151,7 @@ legend('Location', 'northeastoutside');
 set(gca, 'YScale', 'log', 'FontName', 'Times New Roman', 'FontSize', 11, 'LineWidth', 1.1);
 
 %% ===== 5) Save outputs =====
-out_png = fullfile(pwd, sprintf('beamscan_targets_%d_%d_%d_snr_%+d_1bit_compare.png', ...
+out_png = fullfile(pwd, sprintf('beamscan_targets_%d_%d_%d_snr_%+d_parabolic_interpolation_compare.png', ...
     target_idx_list(1), target_idx_list(2), target_idx_list(3), snr_db));
 
 exportgraphics(fig, out_png, 'Resolution', 300);
@@ -183,26 +177,12 @@ for ia = 1:num_alg
             p_tmp.enable_peak_search = false;
             p_tmp.enable_interp = false;
             [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
-        case 'onebit_ampcomp'
-            p_tmp = p;
-            p_tmp.enable_1bit_quantization = true;
-            p_tmp.use_bussgang = true;
-            p_tmp.enable_peak_search = false;
-            p_tmp.enable_interp = false;
-            [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
-        case 'onebit_ampcomp_interp'
+        case 'onebit_parabolic_interpolation'
             p_tmp = p;
             p_tmp.enable_1bit_quantization = true;
             p_tmp.use_bussgang = true;
             p_tmp.enable_peak_search = false;
             p_tmp.enable_interp = true;
-            [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
-        case 'onebit_dft_improved'
-            p_tmp = p;
-            p_tmp.enable_1bit_quantization = true;
-            p_tmp.use_bussgang = true;
-            p_tmp.enable_peak_search = false;
-            p_tmp.enable_interp = false;
             [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
         case 'full_dft'
             p_tmp = p;
@@ -211,12 +191,12 @@ for ia = 1:num_alg
             p_tmp.enable_peak_search = false;
             p_tmp.enable_interp = false;
             [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
-        case 'full_dft_improved'
+        case 'full_dft_parabolic_interpolation'
             p_tmp = p;
             p_tmp.enable_1bit_quantization = false;
             p_tmp.use_bussgang = false;
             p_tmp.enable_peak_search = false;
-            p_tmp.enable_interp = false;
+            p_tmp.enable_interp = true;
             [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
         otherwise
             error('Unknown algorithm tag: %s', algorithms(ia).tag);

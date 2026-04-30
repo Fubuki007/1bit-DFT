@@ -8,7 +8,7 @@
 % - 1-bit + ESPRIT
 % - 1-bit + MUSIC
 % - 1-bit + DFT
-% - 1-bit + improved DFT in the paper (scaling factor + interpolation)
+% - 1-bit + Parabolic Interpolation in the paper (scaling factor + interpolation)
 
 clear; clc; close all;
 rng(20260413, 'twister');
@@ -67,14 +67,14 @@ subcarrier_list = [16, 32, 64, 128, 256];
 algorithms = struct( ...
     'name', { ...
         '1-bit + DFT', ...
-        '1-bit + Improved DFT', ...
+        '1-bit + Parabolic Interpolation', ...
         'DFT', ...
-        'Improved DFT'}, ...
+        'DFT + Parabolic Interpolation'}, ...
     'tag', { ...
         'onebit_dft', ...
-        'onebit_dft_improved', ...
+        'onebit_parabolic_interpolation', ...
         'full_dft', ...
-        'full_dft_improved'});
+        'full_dft_parabolic_interpolation'});
 
 num_alg = numel(algorithms);
 checkpoint_file = fullfile(pwd, sprintf('multitarget_threefig_target_%d_%d_%d_1bit_compare_checkpoint.mat', target_idx_list(1), target_idx_list(2), target_idx_list(3)));
@@ -161,14 +161,14 @@ end
 %% ===== 4) Plot and save =====
 % Color scheme:
 % - DFT family: blue
-% - Improved DFT family: orange
+% - Parabolic Interpolation family: orange
 % - Solid line: full-precision
 % - Dashed line: 1-bit
 style = {
     '--', 'o', [0.00, 0.45, 0.74];   % 1-bit + DFT: blue circle dashed
-    '--', 's', [0.85, 0.33, 0.10];   % 1-bit + Improved DFT: orange square dashed
+    '--', 's', [0.85, 0.33, 0.10];   % 1-bit + Parabolic Interpolation: orange square dashed
     '-',  'o', [0.00, 0.45, 0.74];   % DFT: blue circle solid
-    '-',  's', [0.85, 0.33, 0.10]};  % Improved DFT: orange square solid
+    '-',  's', [0.85, 0.33, 0.10]};  % DFT + Parabolic Interpolation: orange square solid
 
 fig1 = [];
 if run_snr_sweep
@@ -293,7 +293,7 @@ for ia = 1:num_alg
     switch algorithms(ia).tag
         case 'onebit_dft'
             theta_hat_all = estimate_angles_dft_1bit(y, p);
-        case 'onebit_dft_improved'
+        case 'onebit_parabolic_interpolation'
             p_imp = p;
             p_imp.enable_1bit_quantization = true;
             p_imp.use_bussgang = true;
@@ -303,7 +303,7 @@ for ia = 1:num_alg
             theta_hat_all = est.theta_deg(:).';
         case 'full_dft'
             theta_hat_all = estimate_angles_dft(y, p);
-        case 'full_dft_improved'
+        case 'full_dft_parabolic_interpolation'
             p_full = p;
             p_full.enable_1bit_quantization = false;
             p_full.use_bussgang = false;
