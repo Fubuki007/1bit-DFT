@@ -1,0 +1,221 @@
+arXiv:2209.11170v1 [eess.SP] 5 Sep 2022
+Low Complexity Hybrid Beamforming for mmWave Full-Duplex Integrated Access and Backhaul
+
+Elyes Balti¹, Chris Dick² and Brian L. Evans¹
+¹6G@UT Research Center, Wireless Networking and Communications Group (WNCG)
+The University of Texas at Austin, Austin, TX, ebalti@utexas.edu, bevans@ece.utexas.edu
+²NVIDIA, Santa Clara, CA, cdick@nvidia.com
+
+Abstract—We consider an integrated access and backhaul (IAB) node operating in full-duplex (FD) mode. We analyze simultaneous transmission from the New Radio gNB to the IAB node on the backhaul uplink, IAB node to a user equipment (UE) on the access downlink, and IAB transmitter to the IAB receiver on the self-interference (SI) channel. Our contributions include (1) a low complexity algorithm to jointly design the hybrid analog/digital beamformers for all three nodes to maximize the sum spectral efficiency of the access and backhaul links by canceling SI and maximizing received power; (2) derivation of all-digital beamforming and spectral efficiency upper bound for use in benchmarking; and (3) simulations to compare full vs. half duplex modes, hybrid vs. all-digital beamforming algorithms, proposed hybrid vs. conventional beamforming algorithms, and spectral efficiency upper bound. In simulations, the proposed algorithm shows significant reduction in SI power and increase in sum spectral efficiency.
+
+Index Terms—Integrated Access and Backhaul, Beamforming, Full-Duplex, mmWave, Self-Interference.
+
+I. INTRODUCTION
+FUTURE wireless networks are expected to have densely deployed basesetations (BSs) to support future applications, such as the Internet of Things, virtual/augmented reality, and vehicle-to-everything. However, traditional fiber backhauling is often unavailable or prohibitively expensive for carrier operators. Integrated access and backhaul (IAB) technology has emerged as a cost-effective alternative. In the case of IAB, only a few BSs are connected to the traditional wired infrastructures while the others relay the backhaul traffic wirelessly [1], [2]. In a typical IAB framework, the access and backhaul links share the same frequency spectrum, which results in resource collision; thus, resource management is required to resolve this issue. Owing to the simplicity of implementation, many previous studies have incorporated half duplex (HD) constraints in their frameworks [3]. In the HD IAB approach, the access and backhaul links must use the given radio resources orthogonally, be it in time or frequency. While this helps prevent collisions in the two links, it fails to exploit the full potential of the given radio resources.
+
+In contrast, a smarter IAB framework with full duplex (FD) techniques may simply rule out the HD constraint. FD systems have recently gained enormous attention in academia and industry due to its potential to reduce latency and double spectral efficiency in the link budget compared to the HD relays that transmit and receive in different time slots. These benefits make FD applicable in practice such as machine-to-machine and integrated access and backhaul which is currently proposed in 3GPP Release 17 [4]-[6].
+
+Although FD brings many advantages, it suffers from loopback self-interference (SI), which is caused by the simultaneous transmission and reception over the same resource blocks. This loopback signal cannot be neglected as the SI power can be several orders of magnitude stronger than the signal power received from the user equipment (UE), which can render FD systems dysfunctional [7]. To address this limitation, related work proposed robust beamforming design to suppress the SI signal and achieve acceptable spectral efficiency [8]-[11]. Authors in [12] proposed a hybrid analog/digital beamforming for FD systems with limited dynamic range. In addition, authors in [13] proposed a low complexity frequency-domain successive SI cancellation for FD radios. Authors in [14], [15] proposed a robust beamforming design for an intelligent reflecting surfaces assisted FD multiuser systems to wipe out SI and improve sum spectral efficiency.
+
+In this paper, we consider an FD IAB system. To address SI, we propose low complexity hybrid analog/digital beamforming to cancel SI, avoid analog-to-digital converter (ADC) saturation and maximize sum spectral efficiency of the access and backhaul links. We derive an all-digital solution and upper bound, and compare full vs. half duplex, hybrid vs. all-digital beamforming, conventional SI cancellation, and upper bound. Below, Section II describes the system model. Section III presents the optimization problem and beamforming design. Section IV gives numerical results. Section V concludes.
+
+Notation: Bold lowercase x denotes column vectors bold uppercase X denotes matrices, non-bold letters x, X denote scalar values. Using this notation, $||X||_{F}$ is the Frobenius norm, $\sigma_{l}(X)$ is the l-th singular value of X in decreasing order, $\det(X)$ denotes the determinant, $Tr(X)$ denotes the trace, $X^*$ is the Hermitian or conjugate transpose, $X^{-1}$ denotes the inverse of a square non-singular matrix.
+
+II. SYSTEM MODEL
+Per Fig. 1, the system transmits from gNB to IAB nodes on backhaul uplink, IAB node to user equipment on access downlink, and IAB transmitter to receiver on SI channel.
+
+A. Access and Backhaul Channel Models
+Per Fig. 2, the backhaul uplink channel, $H_{b}$, and the downlink access channel, $H_{a}$, each have the form:
+(1) $H=\sqrt{\frac{N_{RX}N_{TX}}{CR_{e}}}\sum_{c=0}^{C-1}\sum_{r_{c}=0}^{R_{c}-1}\alpha_{r_{c}}a_{RX}(\theta_{r_{c}})a_{TX}^{*}(\phi_{r_{c}})$
+
+Where C is number of clusters, $R_{c}$ is number of rays per cluster, and $\theta_{r_{c}}$ and $\phi_{r_{c}}$ are the angles of arrival (AoA) and departure (AoD) of the $r_{c}$-th ray, respectively. Each ray has a relative time delay $\tau_{r_{c}}$ and complex path gain $\alpha_{r_{c}}$. Also, $a_{RX}(\theta)$ and $a_{TX}(\phi)$ are the RX and TX antenna array response vectors, respectively. The array response vector is given by:
+(2) $a_{\chi}(\theta)=\frac{1}{\sqrt{N_{\chi}}}[1,e^{j\frac{2\pi d}{\lambda}\sin(\theta)},...,e^{j\frac{2\pi d}{\lambda}(N_{x}-1)\sin(\theta)}]^{T}$
+Where $\chi$ is the TX or RX and $N_{x}$ is the number antennas.
+
+B. Self-Interference Channel Model
+Per Fig. 3, the SI leakage at the BS is modeled by the channel matrix $H_{s}$. The separation, or transceiver gap, between TX and RX arrays is defined by distance d while the transceiver incline is determined by $\omega$. The SI channel is decomposed into a static line-of-sight (LOS) channel modeled by $H_{LOS}$, which is derived from the geometry of the transceiver, and a non-line-of-sight (NLOS) channel described by $H_{NLOS}$ which follows the geometric channel model defined by (1). The (q, p)-th entry of the LOS SI leakage matrix can be written as:
+(3) $[H_{LOS}]_{qp}=\frac{1}{d_{pq}}e^{-j2\pi\frac{d_{pq}}{\lambda}}$
+Where $d_{pq}$ is the distance between the p-th antenna in the TX array and q-th antenna in the RX array at BS given by (5).
+The aggregate SI channel matrix can be obtained by:
+(4) $H_{s}=\sqrt{\frac{\kappa}{\kappa+1}}H_{LOS} + \sqrt{\frac{1}{\kappa+1}}H_{NLOS}$
+Where $\kappa$ is the Rician factor.
+(5) $d_{pq}=\sqrt{(\frac{d}{\tan(\omega)}+(q-1)\frac{\lambda}{2})^{2}+(\frac{d}{\sin(\omega)}+(p-1)\frac{\lambda}{2})^{2}-2(\frac{d}{\tan(\omega)}+(q-1)\frac{\lambda}{2})(\frac{d}{\sin(\omega)}+(p-1)\frac{\lambda}{2})\cos(\omega)}$
+
+C. Signal Model
+Received signals at the IAB ($y_{b}$) and UE ($y_{a}$) are given by:
+(6) $y_{b}=\sqrt{\rho_{b}}W_{IAB}^{*}H_{b}F_{gNB}s_{b} + \sqrt{\rho_{s}}W_{IAB}^{*}H_{s}F_{IAB}s_{a} + W_{IAB}^{*}n_{IAB}$
+(7) $y_{a}=\sqrt{\rho_{a}}W_{UE}^{*}H_{a}F_{IAB}s_{a} + W_{UE}^{*}n_{UE}$
+
+Where $W_{IAB}\in\mathbb{C}^{N_{IAB}\times N_{s}}$ and $F_{IAB}\in\mathbb{C}^{N_{IAB}\times N_{s}}$ are the all-digital combiner and precoder at the IAB node, respectively. $W_{UE}\in\mathbb{C}^{N_{UE}\times N_{s}}$ and $F_{gNB}\in\mathbb{C}^{N_{gNB}\times N_{s}}$ being the all-digital combiner and precoder at the UE and gNB, respectively. Also, $N_{s}$ is the number of spatial streams and $N_x$ is the number of antennas at node X.
+
+III. BEAMFORMING DESIGN
+The objective of designing of the beamformers is to maximize the received power for backhaul and access links and simultaneously reject the SI. In this work, we propose a hybrid analog/digital beamforming design wherein large amount of SI is suppressed in the analog domain to avoid the ADC saturation while residual SI is wiped out in the digital domain.
+
+A. Hybrid Beamforming: Analog Stage
+In this stage, we proceed to design the analog combiner $W_{IAB}^{RF}\in\mathbb{C}^{N_{IAB}\times N_{RF}^{IAB}}$ and precoder $F_{IAB}^{RF}\in\mathbb{C}^{N_{IAB}\times N_{RF}^{IAB}}$ at the IAB node as well as the analog combiner at UE $W_{UE}^{RF}\in\mathbb{C}^{N_{UE}\times N_{RF}^{UE}}$ and the analog precoder at the gNB $F_{gNB}^{RF}\in\mathbb{C}^{N_{gNB}\times N_{RF}^{gNB}}$, where $N_{RF}^{X}$ is the number of RF chains at node X. To avoid the ADC saturation, large amount of SI has to be rejected in the analog domain which consequently requires a robust design. The covariance matrix of the precoded SI and noise at the IAB node is expressed by:
+(8) $R_{IAB}=\rho_{s}H_{s}F_{IAB}^{RF}F_{IAB}^{RF*}H_{s}^{*} + \sigma^{2}I_{N_{IAB}}$
+Where $\sigma^{2}$ is the noise variance. Our objective is to jointly design the analog combiners $W_{IAB}^{RF}$, $W_{UE}^{RF}$ and precoders $F_{gNB}^{RF}$, $F_{IAB}^{RF}$ to minimize the SI power at the IAB node and preserve the dimension of the signal space, i.e.. $\text{rank}(W_{IAB}^{RF*}H_{b}F_{gNB}^{RF})=\min(N_{RF}^{IAB},N_{RF}^{gNB})$ and $\text{rank}(W_{UE}^{RF*}H_{a}F_{IAB}^{RF})=\min(N_{RF}^{UE},N_{RF}^{IAB})$. We formulate the optimization problem accordingly:
+(9) $\emptyset_{1}:\min_{W_{IAB}^{RF}}Tr(W_{IAB}^{RF*}R_{IAB}W_{IAB}^{RF})$
+s.t. $W_{IAB}^{RF*}H_{b}F_{gNB}^{RF}=\alpha I_{N_{RF}^{IAB}}$
+Where $R_{IAB}$ is a positive definite matrix ($R_{IAB}>0$) and $\alpha=1/\sqrt{Tr(W_{IAB}^{RF*}W_{IAB}^{RF})}$ is a power normalization coefficient.
+
+To design the analog precoder at the IAB $F_{IAB}^{RF}$ we proceed similarly as $W_{IAB}^{RF}$. The covariance matrix of the combined SI and noise is expressed by:
+(10) $S_{IAB}=\rho_{s}H_{s}^{*}W_{IAB}^{RF}W_{IAB}^{RF*}H_{s} + \sigma^{2}I_{N_{IAB}}$
+Where ($S_{IAB}>0$) is a positive definite matrix. Then, we formulate the problem accordingly:
+(11) $\emptyset_{2}:\min_{F_{IAB}^{RF}}Tr(F_{IAB}^{RF*}S_{IAB}F_{IAB}^{RF})$
+s.t. $W_{UE}^{RF*}H_{a}F_{IAB}^{RF}=\beta I_{N_{RF}^{IAB}}$
+Where $\beta=1/\sqrt{Tr(F_{IAB}^{RF*}F_{IAB}^{RF})}$ is a power normalization coefficient.
+
+Theorem 1. The optimal analog combiner and precoder at the IAB node, solutions to the problems (9) and (11) are expressed by:
+(12) $W_{IAB}^{RF}=\alpha R_{IAB}^{-1}H_{b}F_{gNB}^{RF}(F_{gNB}^{RF*}H_{b}^{*}R_{IAB}^{-1}H_{b}F_{gNB}^{RF})^{-1}$
+(13) $F_{IAB}^{RF}=\beta S_{IAB}^{-1}H_{a}^{*}W_{UE}^{RF}(W_{UE}^{RF*}H_{a}S_{IAB}^{-1}H_{a}^{*}W_{UE}^{RF})^{-1}$
+Proof. The proof of Theorem 1 is provided in Appendix A.
+
+In this design, the analog precoder at gNB $F_{gNB}^{RF}$ and combiner at UE $W_{UE}^{RF}$ can be selected regardless of Problems (9) and (11). Proposition 1. The analog combiner at the UE that minimizes the SI and hence the Mean Square Error (MSE) is the Wiener filter or Linear Minimum (LMMSE) receiver WMMSE. The filter design problem can be defined as:
+(14) $\emptyset_{3}:W_{MMSE}=\arg\min_{W}\mathbb{E}[||s-y||_{2}^{2}]$
+For the analog precoder at the gNB, we adopt the Regularized Zero-Forcing filter $F_{RegZF}$. The expressions of the analog combiner and precoder at the UE and gNB, respectively, are given by:
+(15) $W_{UE}^{RF}=(H_{a}F_{IAB}^{RF}F_{IAB}^{RF*}H_{a}^{*} + \frac{N_{UE}}{SNR_{a}}I_{N_{UE}})^{-1}H_{a}F_{IAB}^{RF}$
+(16) $F_{gNB}^{RF}=(H_{b}^{*}W_{IAB}^{RF}W_{IAB}^{RF*}H_{b} + \frac{N_{IAB}}{SNR_{b}}I_{N_{IAB}})^{-1}H_{b}^{*}W_{IAB}^{RF}$
+Where $SNR_{x}=\frac{\rho_{x}}{\sigma^{2}}$, $x\in\{a,b\}$.
+
+The analog beamformers designed in Eqs. (12-16) are unconstrained solutions, i.e., they do not satisfy the constant amplitude (CA) constraint. To satisfy such constraint, they have to be projected onto the subspace of the CA constraint. Equivalently, the unconstrained solutions are updated as follows:
+(17) $X_{RF}\leftarrow\frac{1}{\sqrt{N}}\exp(j\angle X_{RF})$
+Where N and $\angle X$ are the number of rows and angles of the complex matrix X, respectively.
+
+B. Hybrid Beamforming: Digital Stage
+Once the analog beamformers are designed to reject large amount of SI to avoid the ADC saturation, the analog cancellation is not perfect, i.e., there are some residual SI left over after the analog stage. The digital beamformers which are interpreted as the last line of defense come to further remove this residual SI.
+
+Theorem 2. The optimal digital beamformer $X_{BB}$ can be expressed in terms of the analog beamformer $X_{RF}$ as follows. We first apply the SVD $X_{RF}=U_{RF}S_{RF}V_{RF}^{*}$. Second we express $X_{BB}=V_{RF}S_{RF}^{-1}Q_{*}$ where the columns of $Q_{*}\in\mathbb{C}^{L\times N}$ comprise the N dominant left singular vectors of $U_{RF}^{*}A$. Note that $X_{RF}\in\mathbb{C}^{M\times L}$, $X_{BB}\in\mathbb{C}^{L\times N}$ and $A\in\mathbb{C}^{M\times N}$.
+Proof. The proof of Theorem 2 is reported in Appendix B.
+
+C. All-Digital Beamforming
+In mmWave communications, all-digital beamforming using one RF chain per antenna with full precision data converters is not a practical design. Although it achieves high spectral efficiency, it is not energy efficient. However, such a design may serve as a benchmarking tool to measure the efficacy of the proposed hybrid beamforming design. To this end, we design an all-digital beamformer to cancel SI and maximize the sum spectral efficiency by extending the routine we are using for analog beamforming design. The first extension is the all-digital beamformer $X\in\mathbb{C}^{M\times N}$ would have different dimensions compared to the analog beamfomers, where M and N are the numbers of antennas and spatial streams, respectively. The second extension is that the all-digital beamformer design is unconstrained; i.e., the CA constraint does not exist for such a design.
+
+Remark 1. Given the all-digital beamformer solution $X\in\mathbb{C}^{M\times N}$ M and N are the number of antennas and spatial streams, respectively. M should be large enough to sustain N spatial streams and the remaining $P=M-N$ degrees of freedom should dedicated to suppress the SI.
+
+We introduce the expressions of the spectral efficiency for the backhaul and access links, respectively, as follows:
+(18) $\mathcal{I}_{b}=\log\det(I_{N_{s}}+\rho_{b}W_{IAB}^{*}H_{b}F_{gNB}Q_{b}^{-1}F_{gNB}^{*}H_{b}^{*}W_{IAB})$
+(19) $\mathcal{I}_{a}=\log\det(I_{N_{s}}+\rho_{a}W_{UE}^{*}H_{a}F_{IAB}Q_{a}^{-1}F_{IAB}^{*}H_{a}^{*}W_{UE})$
+Where $Q_{b}$ is the covariance matrix of the SI and noise power for the backhaul link and $Q_{a}$ is the covariance matrix of the noise power for the access link, respectively given by:
+(20) $Q_{b}=\rho_{s}W_{IAB}^{*}H_{s}F_{IAB}F_{IAB}^{*}H_{s}^{*}W_{IAB}+\sigma^{2}W_{IAB}^{*}W_{IAB}$
+(21) $Q_{a}=\sigma^{2}W_{IAB}^{*}W_{IAB}$
+
+Lemma 1. For the interference-free case, the optimal beamformers diagonalize the channel. By applying the SVD on the channel, we retrieve the singular values and extract the first $N_{s}$ modes associated with the spatial streams. The upper bound for backhaul or access link is given by:
+(22) $\mathcal{I}_{Bound}=\sum_{l=0}^{N_{s}-1}\log(1+\sigma_{l}(H)^{2}SNR)$
+
+Algorithm 1 Hybrid Beamforming Design
+1: function DIGITAL($X_{RF}$, A, N)
+2: Compute SVD $X_{RF}=U_{RF}S_{RF}V_{RF}^{*}$
+3: $Q \leftarrow$ N Dominant left singular vectors of $U_{RF}^{*}A$
+4: $X_{BB} \leftarrow V_{RF}S_{RF}^{-1}Q$
+5: return $X_{BB}$
+6: end function
+7: Input $H_{s}$, $H_{a}$, $H_{b}$
+8: Initialize $F_{gNB}^{RF}$, $F_{IAB}^{RF}$, $W_{IAB}^{RF}$, $W_{UE}^{RF}$, $F_{gNB}^{BB}$, $F_{IAB}^{BB}$, $W_{IAB}^{BB}$, $W_{UE}^{BB}$
+9: Set $W_{IAB}\leftarrow W_{IAB}^{RF}W_{IAB}^{BB}$, $F_{IAB}\leftarrow F_{IAB}^{RF}F_{IAB}^{BB}$, $W_{UE}\leftarrow W_{UE}^{RF}W_{UE}^{BB}$ and $F_{gNB}\leftarrow F_{gNB}^{RF}F_{gNB}^{BB}$.
+10: Compute $R_{IAB}$ and $S_{IAB}$ from (8) and (10).
+11: Obtain $W_{IAB}^{RF}$ and $F_{IAB}^{RF}$ from (12) and (13).
+12: Obtain $W_{UE}^{RF}$ and $F_{gNB}^{RF}$ from (15) and (16).
+13: Project the analog beamformers on the CA subspace (17).
+14: $W_{IAB}^{BB}\leftarrow \text{DIGITAL}(W_{IAB}^{RF},H_{b}F_{gNB},N_{s})$.
+15: $F_{IAB}^{BB}\leftarrow \text{DIGITAL}(F_{IAB}^{RF},H_{a}^{*}W_{UE},N_{s})$.
+16: $W_{UE}^{BB}\leftarrow \text{DIGITAL}(W_{UE}^{RF},H_{a}F_{IAB},N_{s})$.
+17: $F_{gNB}^{BB}\leftarrow \text{DIGITAL}(F_{gNB}^{RF},H_{b}^{*}W_{IAB},N_{s})$.
+18: Set $W_{IAB}\leftarrow W_{IAB}^{RF}W_{IAB}^{BB}$, $F_{IAB}\leftarrow F_{IAB}^{RF}F_{IAB}^{BB}$, $W_{UE}\leftarrow W_{UE}^{RF}W_{UE}^{BB}$ and $F_{gNB}\leftarrow F_{gNB}^{RF}F_{gNB}^{BB}$.
+19: Repeat Steps (10-18) until the convergence of (9) and (11).
+20: return $F_{gNB}^{RF}$, $F_{IAB}^{RF}$, $W_{IAB}^{RF}$, $W_{UE}^{RF}$, $F_{gNB}^{BB}$, $F_{IAB}^{BB}$, $W_{IAB}^{BB}$, $W_{UE}^{BB}$
+
+D. Convergence
+In this subsection, we prove the convergence of the proposed algorithm 1. Since the digital beamforming solutions are derived in terms of the analog beamformers, the convergence of the hybrid analog/digital beamforming algorithm depends on the convergence of the analog solutions themselves. In other terms, it is sufficient to prove the convergence of the objective functions in (9) and (11). We show that the objective function decreases in each iteration and converges to the local optimum in a few iterations, which makes it computationally efficient. The total SI plus noise power at the IAB node, i.e., the objective function of (9) is given by:
+(23) $R=Tr(W_{IAB}^{RF*}R_{IAB}W_{IAB}^{RF})$
+$=Tr(W_{IAB}^{RF*}(\rho_{s}H_{s}F_{IAB}^{RF}F_{IAB}^{RF*}H_{s}^{*} + \sigma^{2}I_{N_{IAB}})W_{IAB}^{RF})$
+$=Tr(\rho_{s}W_{IAB}^{RF*}H_{s}F_{IAB}^{RF}F_{IAB}^{RF*}H_{s}^{*}W_{IAB}^{RF}) + \sigma^{2}N_{RF}$
+
+Similarly, the SI plus noise power defined in (11) is given by:
+(24) $S=Tr(F_{IAB}^{RF*}S_{IAB}F_{IAB}^{RF})$
+$=Tr(F_{IAB}^{RF*}(\rho_{s}H_{s}^{*}W_{IAB}^{RF}W_{IAB}^{RF*}H_{s} + \sigma^{2}I_{N_{IAB}})F_{IAB}^{RF})$
+$=Tr(\rho_{s}F_{IAB}^{RF*}H_{s}^{*}W_{IAB}^{RF}W_{IAB}^{RF*}H_{s}F_{IAB}^{RF}) + \sigma^{2}N_{RF}$
+
+It is noteworthy to state that the objective functions in (23) and (24) have the same generic form and so the solutions as well. The local optimal solutions of the objective functions (9) and (11) are given by Theorem 1 and they are sure to converge to the locally optimal solution as it is guaranteed by Algorithm 1. The effective SI power decreases in each iteration and it is lower bounded by zero.
+Fig. 4 illustrates the progress of the effective SI power with respect to the number of iterations. We notice that the algorithm converges in just 10 iterations requiring 0.7 Mflops in total. In addition, we observe that the analog beamforming drops the SI power from 128 to 16 to prevent the ADC saturation (8x) while the digital beamforming drops the SI power from 16 to 10.06 (1.5x). Since the objective function (11) has the same generic form as (9), the results in Fig. 4 also hold for the problem (11).
+
+E. Complexity Analysis
+Table I analyzes the computational complexity of the proposed hybrid beamforming algorithm. Multiplying matrices $A\in\mathbb{C}^{m\times n}$ and $B\in\mathbb{C}^{n\times p}$ requires $nmp$ flops. An inverse of an $n\times n$ matrix using Cholesky decomposition requires $\frac{n^{3}}{3}$ flops whereas multiplication of a matrix $A\in\mathbb{C}^{m\times n}$ and its Hermitian ($A^{*}A$) requires $\frac{nm^{2}}{2}$ flops.
+
+TABLE I: Computational complexity of the hybrid beamforming algorithm. Parameters values are selected from Table II.
+Operation | Complex Multiplications for Highest-Order Terms | Flops | Dominant Term | Contribution (Total)
+$W_{IAB}^{RF}$ | $N_{IAB}^{2}N_{RF}^{IAB}+\frac{1}{3}N_{IAB}^{3}+N_{gNB}N_{IAB}N_{RF}^{gNB}+\frac{1}{3}(N_{RF}^{gNB})^{3}+N_{IAB}^{2}N_{RF}^{gNB}$ | 21165 | $\frac{1}{3}N_{IAB}^{3}$ | 51.61% (16.06%)
+$F_{IAB}^{RF}$ | $\frac{3}{2}N_{IAB}^{2}N_{RF}^{IAB}+\frac{1}{3}N_{IAB}^{3}+N_{UE}N_{IAB}N_{RF}^{UE}+\frac{1}{3}(N_{RF}^{UE})^{3}+N_{IAB}^{2}N_{RF}^{UE}$ | 19373 | $N_{IAB}^{3}$ | 56.38% (16.06%)
+$F_{gNB}^{RF}$ | $\frac{3}{2}N_{gNB}^{2}N_{RF}^{gNB}+\frac{1}{3}N_{gNB}^{3}$ | 13995 | $\frac{1}{3}N_{gNB}^{3}$ | 78.05% (16.06%)
+$W_{IAB}^{BB}$ | $9(N_{RF}^{IAB})^{2}N_{IAB}+9N_{s}^{2}N_{IAB}+N_{IAB}^{2}N_{s}+N_{s}^{3}$ | 4360 | $N_{IAB}^{2}N_{s}$ | 46.97% (3.03%)
+$F_{IAB}^{BB}$ | $9(N_{RF}^{IAB})^{2}N_{IAB}+9N_{s}^{2}N_{IAB}+N_{IAB}^{2}N_{s}+N_{s}^{3}$ | 4360 | $N_{IAB}^{2}N_{s}$ | 46.97% (3.01%)
+$F_{gNB}^{BB}$ | $9(N_{RF}^{gNB})^{2}N_{gNB}+9N_{s}^{2}N_{gNB}+N_{gNB}^{2}N_{s}+N_{s}^{3}$ | 4360 | $N_{gNB}^{2}N_{s}$ | 46.97% (3.01%)
+$W_{UE}^{BB}$ | $9(N_{RF}^{UE})^{2}N_{UE}+9N_{s}^{2}N_{UE}+N_{UE}^{2}N_{s}+N_{s}^{3}$ | 328 | $3(N_{RF}^{UE})^{2}N_{UE}$ | 43.90% (0.21%)
+$W_{UE}^{RF}$ | $N_{UE}^{2}N_{RF}^{UE}$ | 70 | $N_{UE}^{2}N_{RF}^{UE}$ | 69.23% (0.07%)
+
+TABLE II: System parameters.
+Parameter | Value
+Carrier frequency | 28 GHz
+Bandwidth | 850 MHz
+Number of gNB/IAB Antennas ($N_{gNB}/N_{IAB}$) | 32
+Number of UE Antennas ($N_{UE}$) | 4
+Number of Clusters (C) | 6
+Number of Rays per Cluster ($R_{c}$) | 8
+AoA/AoD Angular Spread | $20^{\circ}$
+Transceivers Gap (d) | $2\lambda$
+Transceivers Incline ($\omega$) | $9^{\circ}$
+Rician Factor ($\kappa$) | 5 dB
+SI Power ($\rho_s$) | 15 dB
+Number of Spatial Streams ($N_{s}$) | 2
+Number of RF Chains ($N_{RF}$) | 2
+
+IV. NUMERICAL ANALYSIS
+Table II gives the parameter values used in the simulations. For each case, 1000 channels realizations were generated to perform the Monte Carlo simulation in MATLAB.
+Among the three FD hybrid beamforming solutions in Fig. 5, SVD and [8] are very sensitive to SI because the relative analog beamformers ignore SI cancellation, which leads to ADC saturation and hence more performance loss. Our approach, however, introduces analog beamformer design to reduce a large amount of SI power as shown in Fig. 4. The performance of the proposed system is improved by the optimal digital beamforming solution which further suppresses residual SI. At $SNR=5$ dB, we notice the proposed FD system achieves a gain of around 4.71, and 6.2 bits/s/Hz with respect to SVD, work [8], respectively. In addition, our proposed FD beamforming algorithm outperforms the HD mode, which is a goal of this work, and achieves a gain of 8.62 bits/s/Hz at $SNR=5$ dB.
+
+V. CONCLUSION
+In this paper, we proposed a low complexity hybrid analog/digital beamforming design for a full duplex integrated access and backhaul system. The proposed algorithm designs the hybrid precoders for the gNB Donor and IAB node, and the hybrid combiners for the IAB node and user equipment. In simulation, the algorithm converges in five iterations while reducing a large amount of SI in the analog domain to avoid ADC saturation. In addition, the hybrid beamforming results are further improved by the implementation of the optimal digital beamformers which wipe out the residual SI. Simulations show that the proposed FD beamforming design outperforms the related works in terms of spectral efficiency as well as it beats the half duplex mode which demonstrates the feasibility of the proposed design for practical consideration.
+
+APPENDIX A
+PROOF OF THEOREM 1
+The objective is to minimize the equality in (9), while preserving the signal dimensions. We begin by expressing the Lagrangian function given by:
+(25) $\mathcal{L}(W_{IAB}^{RF},x)=W_{IAB}^{RF*}R_{IAB}W_{IAB}^{RF} + x(W_{IAB}^{RF*}H_{b}F_{gNB}^{RF}-I_{N_{RF}})$
+The Lagrangian conditions for this problem are:
+(26) $\nabla_{W_{IAB}^{RF*}}\mathcal{L}=0$
+(27) $x^{*}(W_{IAB}^{RF*}H_{b}F_{gNB}^{RF}-I_{N_{RF}})=0$
+Eq. (26) can be reformulated as:
+(28) $\nabla_{W_{IAB}^{RF*}}(W_{IAB}^{RF*}R_{IAB}W_{IAB}^{RF}) + x^{*}\nabla_{W_{IAB}^{RF*}}(W_{IAB}^{RF*}H_{b}F_{gNB}^{RF}-I_{N_{RF}})=0$
+Where $\nabla$ is the gradient operator and $x^{*}$ is the Lagrangian multiplier. Differentiating (28) with respect to $W_{IAB}^{RF*}$, we get:
+(29) $R_{IAB}W_{IAB}^{RF} + xH_{b}F_{gNB}^{RF}=0$
+(30) $W_{IAB}^{RF}=-R_{IAB}^{-1}H_{b}F_{gNB}^{RF}x$
+Then substituting the expression of ($W_{IAB}^{RF}$) in (27), we obtain:
+(31) $(-R_{IAB}^{-1}H_{b}F_{gNB}^{RF}x)^{*}H_{b}F_{gNB}^{RF}=\alpha I_{N_{RF}}$
+Thereby:
+(32) $x=-\alpha(F_{gNB}^{RF*}H_{b}^{*}R_{IAB}^{-1}H_{b}F_{gNB}^{RF})^{-1}$
+(33) $W_{IAB}^{RF}=\alpha R_{IAB}^{-1}H_{b}F_{gNB}^{RF}(F_{gNB}^{RF*}H_{b}^{*}R_{IAB}^{-1}H_{b}F_{gNB}^{RF})^{-1}$
+The proof of the analog precoder at the IAB node ($F_{IAB}^{RF}$) follows the same derivation steps as ($W_{IAB}^{RF}$).
+
+APPENDIX B
+PROOF OF THEOREM 2
+For $X_{RF}$ given. Consider the SVD $X_{RF}=U_{RF}S_{RF}V_{RF}^{*}$ and let $Q=S_{RF}V_{RF}^{*}X_{BB}\in\mathbb{C}^{L\times N}$. Then $X_{RF}X_{BB}=U_{RF}Q$ so that $X_{BB}^{*}X_{RF}^{*}X_{RF}X_{BB}=Q^{*}U_{RF}^{*}U_{RF}Q=Q^{*}Q$. The generic form of the spectral efficiency in (18) and (19) is expressed in terms of Q as:
+(34) $\max_{Q^{*}Q=I_{N}} \log\det(I_{N} + \rho Q^{*}U_{RF}^{*}A A^{*}U_{RF}Q)$
+Solution $Q_{*}$ is given by the N dominant left singular vectors of $U_{RF}A$. By changing variables, we solve $X_{BB}=V_{RF}S_{RF}^{-1}Q_{*}$. For $Q=Q_{*}$, the objective function becomes:
+(35) $\log\det(I_{N} + \rho Q^{*}U_{RF}^{*}AA^{*}U_{RF}Q) \le \log\det(I_{N} + \rho A^{*}A)$
+with the bound in (35) applying to any semi-unitary $U_{RF}$. This bound holds with equality if the columns of $U_{RF}$ are taken as the L dominant left singular vectors of A.
+
+REFERENCES
+[1] M. Cudak, A. Ghosh, A. Ghosh, and J. Andrews, "Integrated access and backhaul: A key enabler for 5g millimeter-wave deployments," IEEE Communications Magazine, vol. 59, no. 4, pp. 88-94, 2021.
+[2] J. Zhang, N. Garg, M. Holm, and T. Ratnarajah, "Design of full duplex millimeter-wave integrated access and backhaul networks," IEEE Wireless Communications, vol. 28, no. 1, pp. 60-67, 2021.
+[3] M. Polese, M. Giordani, T. Zugno, A. Roy, S. Goyal, D. Castor, and M. Zorzi, "Integrated access and backhaul in 5G mmwave networks: Potential and challenges," IEEE Commun. Mag., vol. 58, no. 3, pp. 62-68, 2020.
+[4] J. Zhang, H. Luo, N. Garg, M. Holm, and T. Ratnarajah, "Design and analysis of mmwave full-duplex integrated access and backhaul networks," in IEEE Int. Conf. Communications, 2021, pp. 1-6.
+[5] "The 3GPP Releases 5G Evolution: 16-17." [Online]. Available: https://www.5gamericas.org/wp-content/uploads/2020/01/5G-Evolution-3GPP-R16-R17-FINAL.pdf
+[6] J. Zhang, H. Luo, N. Garg, A. Bishnu, M. Holm, and T. Ratnarajah, "Design and analysis of wideband in-band-full-duplex fr2-iab networks," IEEE Transactions on Wireless Communications, pp. 1-1, 2021.
+[7] E. Balti and N. Mensi, "Zero-forcing max-power beamforming for hybrid mmwave full-duplex MIMO systems," in Int. Conf. Adv. Sys. & Emergent Technol., 2020, pp. 344-349.
+[8] L. P. Roberts, H. B. Jain, and S. Vishwanath, "Frequency-selective beamforming cancellation design for millimeter-wave full-duplex," in IEEE Int. Conf. Commun., 2020, pp. 1-6.
+[9] K. E. Kolodziej, J. P. Doane, B. T. Perry, and J. S. Herd, "Adaptive beamforming for multi-function in-band full-duplex applications," IEEE Wireless Communications, vol. 28, no. 1, pp. 28-35, 2021.
+[10] D. Yu, Y. Liu, and H. Zhang, "Energy-efficient beamforming design for user-centric full-duplex wireless backhaul networks," in IEEE Global Commun. Conf., 2021, pp. 1-6.
+[11] T. Chen, M. B. Dastjerdi, H. Krishnaswamy, and G. Zussman, "Wide-band full-duplex phased array with joint transmit and receive beamforming: Optimization and rate gains," IEEE/ACM Trans. Networking, vol. 29, no. 4, pp. 1591-1604, 2021.
+[12] I. P. Roberts, J. G. Andrews, and S. Vishwanath, "Hybrid beamforming for millimeter wave full-duplex under limited receive dynamic range," IEEE Trans. Wireless Commun., vol. 20, no. 12, pp. 7758-7772, 2021.
+[13] Y. He, H. Zhao, W. Guo, S. Shao, and Y. Tang, "Frequency-domain successive cancellation of nonlinear self-interference with reduced complexity for full-duplex radios," IEEE Trans. Commun., pp. 1-1, 2022.
+[14] Y. Liu, Q. Hu, Y. Cai, G. Yu, and G. Y. Li, "Deep-unfolding beamforming for intelligent reflecting surface assisted full-duplex systems," IEEE Trans. Wireless Commun., pp. 1-1, 2021.
+[15] Y. Cai, M.-M. Zhao, K. Xu, and R. Zhang, "Intelligent reflecting surface aided full-duplex communication: Passive beamforming and deployment design," IEEE Trans. Wireless Commun., vol. 21, no. 1, pp. 383-397, 2022.

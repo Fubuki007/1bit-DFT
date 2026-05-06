@@ -1,0 +1,39 @@
+毫米波通感实时感知与预警算法方案
+
+I. 系统模型
+
+参数含义
+Index | Total | Meaning
+N | | 子载波数
+L | | 快拍数(frame length)
+Ntx | | 发射天线数
+Nr | | 接收天线数
+
+A. 发射模型
+发射信号:
+(1) $\tilde{x}(t)\triangleq\sum_{i=0}^{N_{s}-1}\sum_{l=0}^{L-1}x_{i}[l]e^{j2\pi i\Delta ft}rect(\frac{t-lT}{T})$
+
+B. 通信模型
+(2) $x_{i}[l]=W_{i}s_{i}[l]\in\mathbb{C}^{N_{tx}\times1}$
+(3) $y_{i,k}[l]\triangleq h_{i,k}^{H}x_{i}[l]+z_{i,k}[l]$
+
+C. 感知模型
+(4) $\tilde{y}(t)=\sum_{q=1}^{Q}\beta_{q}b(\phi_{q},\psi_{q})a^{H}(\phi_{q},\psi_{q})\tilde{x}(t-\frac{2R_{q}}{c})e^{j2\pi f_{D,q}t}+\tilde{z}(t)$
+
+其中
+(5) $\gamma(\phi_{q},\psi_{q})=[1,...,e^{-j\frac{2\pi}{\lambda_{c}}((N_{rx,x}-1)d_{rx,x}\sin\psi_{q}\cos\phi_{q}+(N_{rx,y}-1)d_{rx,y}\sin\psi_{q}\sin\phi_{q})}]^{T}$
+(6) $a(\phi_{q},\psi_{q})=[1,...,e^{j\frac{2\pi}{\lambda_{c}}((N_{tx,x}-1)d_{tx,x}\sin\psi_{q}\cos\phi_{q}+(N_{tx,y}-1)d_{tx,y}\sin\psi_{q}\sin\phi_{q})}]^{T}$
+
+采样后做 DFT 得到:
+(7) $y_{i}[l]=\sum_{q=1}^{Q}\beta_{q}b(\phi_{q},\psi_{q})a^{H}(\phi_{q},\psi_{q})x_{i}[l]e^{-j4\pi i\Delta fR_{q}/c}e^{j4\pi lTv_{q}f_{c}/c}+z_{i}[l]$
+(8) $=\sum_{q=1}^{Q}\beta_{q}b(\phi_{q},\psi_{q})a^{H}(\phi_{q},\psi_{q})x_{i}[l]e^{ji\omega_{r}(R_{q})}e^{jl\omega_{v}(v_{q})}+z_{i}[l]$
+
+其中
+(9) $\omega_{r}(R_{q})=-4\pi\Delta fR_{q}/c$
+(10) $\omega_{v}(v_{q})=4\pi Tv_{q}f_{c}/c$
+
+考虑共址的自收自发:
+(11) $y_{i}[l]=\sum_{q=1}^{Q}\beta_{q}b(\phi_{q},\psi_{q})a^{H}(\phi_{q},\psi_{q})x_{i}[l]e^{ji\omega_{r}(R_{q})}e^{jl\omega_{v}(v_{q})}+\sqrt{\rho_{SI}}H_{SI}[i]x_{i}[l]+z_{i}[l]$
+
+其中
+(12) $H_{SI}[i]=\sqrt{\frac{\kappa_{SI}}{\kappa_{SI}+1}}H_{SI}^{LoS}[i]+\sqrt{\frac{1}{\kappa_{SI}+1}}H_{SI}^{NLoS}[i]$
