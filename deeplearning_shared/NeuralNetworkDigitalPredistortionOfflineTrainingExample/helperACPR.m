@@ -1,0 +1,16 @@
+function acpr = helperACPR(paOutput,sr,bw)
+%helperACPR Adjacent channel power ratio (ACPR)
+%   A = helperACPR(X,R,BW) calculates the ACPR value for the input signal X,
+%   for an assumed signal bandwidth of BW. The sampling rate of X is R.
+
+%   Copyright 2023 The MathWorks, Inc.
+
+acprModel = comm.ACPR(...
+  'SampleRate',sr, ...
+  'MainChannelFrequency',0, ...
+  'MainMeasurementBandwidth',bw, ...
+  'AdjacentChannelOffset',[-bw bw], ...
+  'AdjacentMeasurementBandwidth',bw);
+acpr = acprModel(double(paOutput));
+acpr = mean(acpr);
+end
