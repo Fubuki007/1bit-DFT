@@ -299,7 +299,6 @@ for ia = 1:num_alg
         case 'onebit_interp'
             p_imp = p;
             p_imp.enable_1bit_quantization = true;
-            p_imp.use_bussgang = false;
             p_imp.enable_peak_search = true;
             p_imp.enable_interp = true;
             est = angle_1bit_dft_multi_estimator(y, x, p_imp);
@@ -309,7 +308,6 @@ for ia = 1:num_alg
         case 'full_dft_parabolic_interpolation'
             p_full = p;
             p_full.enable_1bit_quantization = false;
-            p_full.use_bussgang = false;
             p_full.enable_peak_search = true;
             p_full.enable_interp = true;
             est = angle_1bit_dft_multi_estimator(y, x, p_full);

@@ -6,7 +6,6 @@ function [est, debug] = angle_1bit_dft_estimator(y, x, p, truth)
 %   p     : 参数结构体
 %           必需字段: fc, c, dr, dt, Na
 %           可选字段: enable_1bit_quantization (default=false)
-%                    use_bussgang (default=true when 1-bit enabled)
 %                    eps_div (default=1e-10)
 %                    enable_cfar (default=false)
 %                    cfar_num_train (default=8)
@@ -43,9 +42,6 @@ end
 if ~isfield(p, 'enable_1bit_quantization') || isempty(p.enable_1bit_quantization)
     p.enable_1bit_quantization = false;
 end
-if ~isfield(p, 'use_bussgang') || isempty(p.use_bussgang)
-    p.use_bussgang = p.enable_1bit_quantization;
-end
 if ~isfield(p, 'enable_cfar') || isempty(p.enable_cfar)
     p.enable_cfar = false;
 end
@@ -65,18 +61,11 @@ end
 lambda_c = p.c / p.fc;
 Na = p.Na;
 
-% Step 1: 可选1-bit量化 + 可选幅度补偿
+% Step 1: 可选1-bit量化
 if p.enable_1bit_quantization
     y_proc = sign(real(y)) + 1j * sign(imag(y));
 else
     y_proc = y;
-end
-
-if p.use_bussgang
-    k_bg = 2 / sqrt(pi);
-    y_proc = y_proc / k_bg;
-else
-    k_bg = 1;
 end
 
 % Step 2: 空间维DFT
@@ -205,7 +194,6 @@ est.peak_power = peak_power;
 est.used_cfar = used_cfar;
 
 debug = struct();
-debug.k_bussgang = k_bg;
 debug.na_axis = na_axis;
 debug.angle_axis_deg = rad2deg(asin(max(-1, min(1, -na_axis * lambda_c / (p.dr * Na)))));
 debug.Y_spatial = Y_spatial;

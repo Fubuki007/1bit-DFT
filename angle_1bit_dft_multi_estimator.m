@@ -1,46 +1,43 @@
 function [est, debug] = angle_1bit_dft_multi_estimator(y, x, p)
-%ANGLE_1BIT_DFT_MULTI_ESTIMATOR Multi-target spatial-DFT angle estimator.
-%   This function follows the paper pipeline:
-%   1) optional 1-bit quantization + Bussgang amplitude recovery
-%   2) spatial DFT
-%   3) adaptive scaling factor for communication-symbol removal
-%   4) angle-spectrum accumulation
-%   5) optional peak search
-%   6) optional parabolic interpolation
+%ANGLE_1BIT_DFT_MULTI_ESTIMATOR 多目标空间维 DFT 角度估计器。
+%   本函数遵循如下处理流程：
+%   1) 可选的 1-bit 量化
+%   2) 空间维 DFT
+%   3) 用于通信符号消除的自适应缩放因子估计
+%   4) 角度功率谱累积
+%   5) 可选的峰值搜索
+%   6) 可选的抛物线插值
 %
-%   Interpretation of flags:
-%   - use_bussgang = true  -> enable amplitude compensation
-%   - enable_interp = true  -> enable parabolic interpolation
-%   - using both flags      -> combined Parabolic Interpolation branch
+%   标志位说明：
+%   - enable_interp = true  -> 启用抛物线插值
 %
-%   Inputs
-%   ------
-%   y : [M_rx, N_s, L] complex receive cube
-%   x : [N_tx, N_s, L] known transmit symbols
-%   p : parameter struct
-%       Required fields:
+%   输入
+%   ----
+%   y : [M_rx, N_s, L] 复数接收数据立方体
+%   x : [N_tx, N_s, L] 已知发射符号
+%   p : 参数结构体
+%       必需字段：
 %         c, fc, dr, dt, Na, num_targets
-%       Optional fields:
-%         enable_1bit_quantization (default false)
-%         use_bussgang            (default = enable_1bit_quantization)
-%         enable_peak_search      (default true)
-%         enable_cfar             (default = enable_peak_search)
-%         cfar_num_train          (default 8)
-%         cfar_num_guard          (default 2)
-%         cfar_pfa                (default 1e-3)
-%         enable_interp           (default false)
-%         selection_guard_bins    (default 2)
-%         eps_div                 (default 1e-10)
+%       可选字段：
+%         enable_1bit_quantization (默认 false)
+%         enable_peak_search      (默认 true)
+%         enable_cfar             (默认值 = enable_peak_search)
+%         cfar_num_train          (默认 8)
+%         cfar_num_guard          (默认 2)
+%         cfar_pfa                (默认 1e-3)
+%         enable_interp           (默认 false)
+%         selection_guard_bins    (默认 2)
+%         eps_div                 (默认 1e-10)
 %
-%   Outputs
-%   -------
-%   est.theta_deg      : estimated angles in ascending order, [1, K]
-%   est.theta_rad      : estimated angles in ascending order, [1, K]
-%   est.na_hat         : selected DFT-bin indices on na axis
-%   est.na_hat_refined : refined bin indices after interpolation
-%   est.peak_power     : angle-spectrum values at selected peaks
-%   est.peak_indices   : selected indices on the FFT-shifted spectrum
-%   debug              : intermediate variables
+%   输出
+%   ----
+%   est.theta_deg      : 按升序排列的角度估计值，[1, K]
+%   est.theta_rad      : 按升序排列的弧度制角度估计值，[1, K]
+%   est.na_hat         : 选中的 na 轴 DFT bin 索引
+%   est.na_hat_refined : 插值后的精化 bin 索引
+%   est.peak_power     : 所选峰值对应的角度谱功率
+%   est.peak_indices   : FFT 平移后谱上的峰值索引
+%   debug              : 中间变量
 
 required_fields = {'c', 'fc', 'dr', 'dt', 'Na', 'num_targets'};
 for kf = 1:numel(required_fields)
@@ -52,9 +49,6 @@ if ~isfield(p, 'eps_div') || isempty(p.eps_div)
 end
 if ~isfield(p, 'enable_1bit_quantization') || isempty(p.enable_1bit_quantization)
     p.enable_1bit_quantization = false;
-end
-if ~isfield(p, 'use_bussgang') || isempty(p.use_bussgang)
-    p.use_bussgang = p.enable_1bit_quantization;
 end
 if ~isfield(p, 'enable_peak_search') || isempty(p.enable_peak_search)
     p.enable_peak_search = true;
@@ -85,26 +79,18 @@ assert(N_s_x == N_s && L_x == L, 'x and y must share the same N_s and L.');
 lambda_c = p.c / p.fc;
 Na = p.Na;
 
-% Step 1: optional 1-bit quantization and Bussgang amplitude recovery.
-% This is the amplitude-compensation stage for the 1-bit branch.
+% 第 1 步：可选的 1-bit 量化。
 if p.enable_1bit_quantization
     y_proc = sign(real(y)) + 1j * sign(imag(y));
 else
     y_proc = y;
 end
 
-if p.use_bussgang
-    k_bg = 2 / sqrt(pi);
-    y_proc = y_proc / k_bg;
-else
-    k_bg = 1;
-end
-
-% Step 2: spatial DFT.
+% 第 2 步：空间维 DFT。
 Y_spatial = fftshift(fft(y_proc, Na, 1), 1) / M_rx;
 na_axis = (-floor(Na / 2)):(ceil(Na / 2) - 1);
 
-% Step 3: adaptive scaling and communication-symbol removal.
+% 第 3 步：自适应缩放与通信符号消除。
 debug = [];
 keep_debug_cubes = (nargout > 1) && isfield(p, 'return_debug_cubes') && p.return_debug_cubes;
 if keep_debug_cubes
@@ -149,8 +135,8 @@ for ia = 1:Na
     end
 end
 
-% Step 5: optional peak search.
-% Step 6: optional parabolic interpolation.
+% 第 5 步：可选峰值搜索。
+% 第 6 步：可选抛物线插值。
 cfar_threshold = zeros(Na, 1);
 cfar_detect = false(Na, 1);
 if p.enable_cfar
@@ -173,6 +159,8 @@ if p.enable_peak_search
 else
     candidate_idx = 1:Na;
 end
+
+% 从候选峰中选取前 num_targets 个目标峰，并使用保护窗避免重复选峰。
 
 [peak_idx, peak_power] = local_select_topk(angle_spectrum, candidate_idx, p.num_targets, p.selection_guard_bins);
 
@@ -197,6 +185,8 @@ if p.enable_interp
         end
     end
 end
+
+% 将精化后的 bin 索引映射回目标入射角。
 
 arg_theta = -na_hat_refined * lambda_c / (p.dr * Na);
 arg_theta = max(-1, min(1, arg_theta));
@@ -223,19 +213,18 @@ est.used_interp = logical(p.enable_interp);
 
 if nargout > 1
     debug = struct();
-    debug.k_bussgang = k_bg;
-    debug.na_axis = na_axis;
-    debug.angle_axis_deg = rad2deg(asin(max(-1, min(1, -na_axis * lambda_c / (p.dr * Na)))));
-    debug.alpha = alpha;
-    debug.angle_spectrum = angle_spectrum;
-    debug.local_peak_idx = local_peak_idx;
-    debug.candidate_idx = candidate_idx;
-    debug.cfar_threshold = cfar_threshold;
-    debug.cfar_detect = cfar_detect;
+    debug.na_axis = na_axis;                                      % na 轴索引
+    debug.angle_axis_deg = rad2deg(asin(max(-1, min(1, -na_axis * lambda_c / (p.dr * Na))))); % 对应角度轴
+    debug.alpha = alpha;                                          % 自适应缩放因子
+    debug.angle_spectrum = angle_spectrum;                        % 角度功率谱
+    debug.local_peak_idx = local_peak_idx;                        % 局部峰索引
+    debug.candidate_idx = candidate_idx;                          % 候选峰索引
+    debug.cfar_threshold = cfar_threshold;                        % CFAR 门限
+    debug.cfar_detect = cfar_detect;                              % CFAR 检测结果
 
     if keep_debug_cubes
-        debug.Y_spatial = Y_spatial;
-        debug.Y_clean = Y_clean;
+        debug.Y_spatial = Y_spatial;                              % 空间域变换结果
+        debug.Y_clean = Y_clean;                                  % 清理后的角度域数据立方体
     end
 end
 
@@ -270,7 +259,7 @@ for i = 1:Na
     end
 
     noise_est = mean(angle_spectrum(idx_train));
-    threshold(i) = alpha_cfar * noise_est;
+    threshold(i) = alpha_cfar * noise_est;   % CFAR 检测门限
     detect(i) = angle_spectrum(i) > threshold(i);
 end
 end
@@ -283,7 +272,7 @@ for i = 1:Na
     il = mod(i - 2, Na) + 1;
     ir = mod(i, Na) + 1;
     if angle_spectrum(i) >= angle_spectrum(il) && angle_spectrum(i) > angle_spectrum(ir)
-        peak_idx(end + 1) = i; %#ok<AGROW>
+        peak_idx(end + 1) = i; %#ok<AGROW> % 记录局部极大值点
     end
 end
 end
@@ -316,7 +305,7 @@ while filled < num_targets
 
     for offset = -guard_bins:guard_bins
         idx_block = mod(idx_pick - 1 + offset, Na) + 1;
-        blocked(idx_block) = true;
+        blocked(idx_block) = true; % 将当前峰附近的保护窗屏蔽掉
     end
 end
 

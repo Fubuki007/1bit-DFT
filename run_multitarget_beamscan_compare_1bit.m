@@ -173,28 +173,24 @@ for ia = 1:num_alg
         case 'onebit_dft'
             p_tmp = p;
             p_tmp.enable_1bit_quantization = true;
-            p_tmp.use_bussgang = false;
             p_tmp.enable_peak_search = false;
             p_tmp.enable_interp = false;
             [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
         case 'onebit_parabolic_interpolation'
             p_tmp = p;
             p_tmp.enable_1bit_quantization = true;
-            p_tmp.use_bussgang = true;
             p_tmp.enable_peak_search = false;
             p_tmp.enable_interp = true;
             [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
         case 'full_dft'
             p_tmp = p;
             p_tmp.enable_1bit_quantization = false;
-            p_tmp.use_bussgang = false;
             p_tmp.enable_peak_search = false;
             p_tmp.enable_interp = false;
             [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);
         case 'full_dft_parabolic_interpolation'
             p_tmp = p;
             p_tmp.enable_1bit_quantization = false;
-            p_tmp.use_bussgang = false;
             p_tmp.enable_peak_search = false;
             p_tmp.enable_interp = true;
             [~, debug] = angle_1bit_dft_multi_estimator(y, x, p_tmp);

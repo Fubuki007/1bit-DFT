@@ -1,6 +1,6 @@
 %% run_rmse_vs_subcarriers_1bit_dft.m
 % 单独脚本：横轴子载波数 Ns，纵轴角度RMSE
-% 对比：1-bit+Bussgang vs Full-Precision；并比较不同天线数 M
+% 对比：1-bit vs Full-Precision；并比较不同天线数 M
 % 依赖：angle_1bit_dft_estimator.m
 
 clear; clc; close all;
@@ -22,7 +22,6 @@ p.dr = p.lambda_c / 2;
 % 估计算法参数
 p.Na = 64;
 p.enable_1bit_quantization = true;
-p.use_bussgang = true;
 p.enable_cfar = true;
 p.cfar_num_train = 8;
 p.cfar_num_guard = 2;
@@ -86,11 +85,9 @@ for im = 1:num_m
 
     p_1bit = p_cur;
     p_1bit.enable_1bit_quantization = true;
-    p_1bit.use_bussgang = true;
 
     p_full = p_cur;
     p_full.enable_1bit_quantization = false;
-    p_full.use_bussgang = false;
 
     for in = 1:num_ns
         p_cur.Ns = ns_list(in);
